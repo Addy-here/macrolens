@@ -77,7 +77,7 @@ export function SettingsScreen() {
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: spacing.md,
-          paddingBottom: insets.bottom + 120,
+          paddingBottom: insets.bottom + spacing.xl,
           gap: spacing.md,
         }}
       >

@@ -194,3 +194,76 @@ Library," easy to miss as a camera alternative. Relabeled to "Upload a
 Picture" and restructured the screen's action buttons to show
 Analyze/Retake once a photo is selected, rather than always showing both
 capture entry points.
+
+---
+
+## 2026-10-29 — Migrated navigation to `expo-router` + `NativeTabs` (real system tab bar)
+
+**Problem:** The `@react-navigation/bottom-tabs` + `GlassView`-as-background
+tab bar was still a hand-assembled approximation — a JS-rendered view
+trying to look like the system tab bar, not the actual
+`UITabBarController`. That approximation had a concrete, user-reported
+consequence: screen content (notably the "Upload a Picture" button on
+`CameraScreen`) could render underneath the floating bar because padding
+had to be manually guessed (`insets.bottom + <magic number>`) rather than
+the OS reporting real content-inset space.
+
+**Decision:** Migrated to `expo-router`'s file-based routing with the
+stable `NativeTabs` API (`expo-router/native-tabs`, promoted from
+`unstable_native-tabs`). `NativeTabs` renders the real native
+`UITabBarController` on iOS — on iOS 26 devices this automatically
+produces the system floating Liquid Glass pill tab bar with zero manual
+styling, and more importantly the OS itself manages safe-area/tab-bar
+content insets, so a screen's content physically cannot render under the
+bar — the overlap bug class is closed structurally, not papered over with
+padding constants.
+
+**What changed:**
+- `app/_layout.tsx` (new root layout, replaces `App.tsx`) — wraps
+  `GestureHandlerRootView` / `SafeAreaProvider` around an `expo-router`
+  `Stack`.
+- `app/(tabs)/_layout.tsx` — the `NativeTabs` definition (4 tabs: Today,
+  Log, Plan, Settings) using real SF Symbols via the `sf` icon prop.
+- `app/(tabs)/{index,log,plan,settings}.tsx` — thin route files that
+  re-export the existing named screen components unchanged
+  (`HomeScreen`, `CameraScreen`, `PlanScreen`, `SettingsScreen`).
+- Deleted `App.tsx`, `index.ts`, `src/navigation/RootNavigator.tsx` (dead
+  code once `expo-router/entry` became the app's `main` entry in
+  `package.json`).
+- `app.json`: added `"scheme": "macrolens"` (required by expo-router for
+  deep linking) and `"plugins": ["expo-router", ...]`.
+- Simplified the manual `insets.bottom + <magic number>` padding hacks in
+  `HomeScreen`/`PlanScreen`/`SettingsScreen`/`CameraScreen` back down to
+  `insets.bottom + spacing.xl` — the native tab bar handles its own
+  clearance now, these just need normal safe-area padding, not
+  bar-height guessing.
+
+**Verified:** `npx expo-doctor` 20/20, `npx tsc --noEmit` clean, `npx
+expo start --web` bundles all 4 route files and the root/tabs layouts
+with zero runtime errors (confirmed via direct bundle-compile curl
+requests to bypass tunnel flakiness — see the Smoke-testing section of
+`docs/AGENT-GUIDE.md`).
+
+**Alternatives considered:** Keep `@react-navigation/bottom-tabs` and
+just fix the padding math (rejected — treats the symptom, not the root
+cause; still wouldn't produce the actual native floating pill, which was
+the explicit ask: "I don't want pill to be made [by hand] — see if there
+is a native way").
+
+---
+
+## 2026-10-29 — Apple Design Award criteria adopted as design guide
+
+**Decision:** Use Apple's published Apple Design Award (ADA) judging
+categories as an explicit design checklist for Macrolens going forward,
+alongside MacroFactor as the direct functional-competitor benchmark. See
+`docs/DESIGN-AWARD-CRITERIA.md` for the full criteria breakdown and how
+each maps to a concrete Macrolens decision/action.
+
+**Why:** User asked specifically to research what the App Store/Apple
+Design Award rewards and use a named competitor's execution as a
+reference, framed as "think of it like if Apple wanted to design an app
+themselves how would they do it" — i.e. default to native platform
+primitives and system conventions over custom-built UI wherever Apple
+provides a real one (this directly motivated the `NativeTabs` migration
+above).

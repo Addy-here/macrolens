@@ -67,7 +67,7 @@ export function CameraScreen() {
         )}
       </View>
 
-      <View style={[styles.actions, { paddingBottom: insets.bottom + 100 }]}>
+      <View style={[styles.actions, { paddingBottom: insets.bottom + spacing.lg }]}>
         {photoUri ? (
           <>
             <GlassButton

@@ -53,7 +53,7 @@ export function HomeScreen() {
   return (
     <ScrollView
       style={[styles.screen, { paddingTop: insets.top + spacing.lg }]}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}
     >
       <Text style={[typography.largeTitle, { color: colors.textPrimary }]}>
         Today
