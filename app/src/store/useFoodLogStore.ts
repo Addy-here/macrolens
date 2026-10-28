@@ -6,9 +6,16 @@ interface FoodLogState {
   addEntry: (entry: FoodLogEntry) => void;
   removeEntry: (id: string) => void;
   updateEntry: (id: string, patch: Partial<FoodLogEntry>) => void;
-  /** Entries for a given ISO date (yyyy-mm-dd), for daily totals/history. */
+  /** Entries for a given ISO date (yyyy-mm-dd), for daily totals/history.
+   *  CAUTION: these return newly-allocated arrays/objects. Call them
+   *  imperatively (e.g. `useFoodLogStore.getState().totalsForDate(...)`)
+   *  for one-off reads, never as `useFoodLogStore(s => s.totalsForDate(x))`
+   *  — that pattern causes an infinite render loop since the selector
+   *  result changes identity every call. For reactive use in a component,
+   *  subscribe to `entries` and derive with `useMemo` instead (see
+   *  HomeScreen.tsx). */
   entriesForDate: (isoDate: string) => FoodLogEntry[];
-  /** Summed macros for a given ISO date. */
+  /** Summed macros for a given ISO date. See caution above. */
   totalsForDate: (isoDate: string) => Macros;
 }
 

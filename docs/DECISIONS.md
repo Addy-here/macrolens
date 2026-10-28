@@ -123,3 +123,33 @@ item + estimated portion weight; backend then looks up matching
 macro/micro data from a nutrition database (e.g. USDA FoodData Central)
 keyed by the identified food, scaled by portion. To be finalized as its
 own ADR when the backend's nutrition-data layer is built.
+
+---
+
+## 2026-10-29 — Bugfix: infinite render loop in HomeScreen (Zustand selector)
+
+**Symptom:** iOS simulator crashed on launch with `ERROR The result of
+getSnapshot should be cached to avoid an infinite loop` followed by
+`Maximum update depth exceeded`.
+
+**Root cause:** `HomeScreen` selected `useFoodLogStore((s) =>
+s.totalsForDate(todayIso))`. `totalsForDate` runs a `.reduce()` and
+returns a freshly-allocated object on every call. Zustand (via React 18's
+`useSyncExternalStore`) compares the selector's return value by reference
+to decide whether to re-render; a new object every time looks like a
+perpetual change, so it re-renders forever.
+
+**Fix:** Subscribe to the raw `entries` array from the store (stable
+reference — identity only changes on actual mutation) and compute
+`totals` in the component with `useMemo`, not inside the store selector.
+
+**Rule going forward:** Zustand selectors must return either a primitive
+or a reference that's actually stable (state slices, not derived
+computations). Any `.map()`/`.filter()`/`.reduce()` that builds a new
+array/object belongs in a `useMemo` in the component (or a memoized
+selector library like `zustand/shallow` / `reselect`-style helper if this
+pattern recurs), never inlined in `useStore(s => s.someComputedThing())`.
+`entriesForDate`/`totalsForDate` stay on the store as imperative helpers
+(fine for one-off, non-reactive reads via `getState()`) but are now
+documented as unsafe to use as a reactive selector — see the comment on
+`useFoodLogStore`.
