@@ -68,18 +68,40 @@ export function CameraScreen() {
       </View>
 
       <View style={styles.actions}>
-        <GlassButton
-          label="Take Photo"
-          onPress={pickFromCamera}
-          variant="primary"
-          style={styles.actionButton}
-        />
-        <GlassButton
-          label="Choose from Library"
-          onPress={pickFromLibrary}
-          variant="secondary"
-          style={styles.actionButton}
-        />
+        {photoUri ? (
+          <>
+            <GlassButton
+              label="Analyze this photo"
+              onPress={() => {
+                // TODO: services/visionApi.analyzeFoodPhoto(photoUri) then
+                // navigate to FoodReviewScreen with the result.
+              }}
+              variant="primary"
+              style={styles.actionButton}
+            />
+            <GlassButton
+              label="Retake / choose a different photo"
+              onPress={() => setPhotoUri(null)}
+              variant="secondary"
+              style={styles.actionButton}
+            />
+          </>
+        ) : (
+          <>
+            <GlassButton
+              label="Take Photo"
+              onPress={pickFromCamera}
+              variant="primary"
+              style={styles.actionButton}
+            />
+            <GlassButton
+              label="Upload a Picture"
+              onPress={pickFromLibrary}
+              variant="secondary"
+              style={styles.actionButton}
+            />
+          </>
+        )}
       </View>
     </View>
   );

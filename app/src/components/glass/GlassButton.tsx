@@ -1,11 +1,13 @@
 import React from 'react';
 import {
+  Platform,
   Pressable,
   Text,
   StyleSheet,
   ViewStyle,
   GestureResponderEvent,
 } from 'react-native';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -64,11 +66,19 @@ export function GlassButton({
       disabled={disabled}
       style={[styles.shadowWrap, style]}
     >
-      <BlurView intensity={40} tint="dark" style={styles.base}>
-        <Text style={[styles.label, { color: colors.textPrimary }]}>
-          {label}
-        </Text>
-      </BlurView>
+      {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
+        <GlassView style={styles.base} glassEffectStyle="regular" isInteractive>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>
+            {label}
+          </Text>
+        </GlassView>
+      ) : (
+        <BlurView intensity={40} tint="dark" style={styles.base}>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>
+            {label}
+          </Text>
+        </BlurView>
+      )}
     </Pressable>
   );
 }

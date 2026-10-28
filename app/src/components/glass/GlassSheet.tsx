@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { Platform, View, StyleSheet, ViewStyle } from 'react-native';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
 import { colors, blur } from '../../theme';
 
@@ -15,6 +16,15 @@ interface GlassSheetProps {
  * navigation modal/sheet presentation, not a positioning primitive itself.
  */
 export function GlassSheet({ children, style }: GlassSheetProps) {
+  if (Platform.OS === 'ios' && isLiquidGlassAvailable()) {
+    return (
+      <GlassView style={[styles.sheet, styles.nativeSheet, style]} glassEffectStyle="regular">
+        <View style={styles.handle} />
+        <View style={styles.content}>{children}</View>
+      </GlassView>
+    );
+  }
+
   return (
     <BlurView intensity={blur.sheet} tint="dark" style={[styles.sheet, style]}>
       <View style={styles.handle} />
@@ -29,9 +39,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     borderWidth: 1,
     borderColor: colors.glassBorder,
-    backgroundColor: colors.glassMedium,
     overflow: 'hidden',
     paddingTop: 8,
+  },
+  nativeSheet: {
+    borderColor: 'transparent',
   },
   handle: {
     width: 36,

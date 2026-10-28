@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, ViewStyle } from 'react-native';
+import { Platform, StyleSheet, View, ViewStyle } from 'react-native';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radius, blur } from '../../theme';
@@ -13,6 +14,7 @@ interface GlassCardProps {
   tint?: GlassTint;
   borderRadius?: number;
   style?: ViewStyle;
+  interactive?: boolean;
 }
 
 const tintFill: Record<GlassTint, string> = {
@@ -21,11 +23,21 @@ const tintFill: Record<GlassTint, string> = {
   strong: colors.glassStrong,
 };
 
+const nativeGlassStyle: Record<GlassTint, 'clear' | 'regular'> = {
+  light: 'clear',
+  medium: 'regular',
+  strong: 'regular',
+};
+
 /**
- * Base glass surface primitive. Every other glass component (GlassButton,
- * GlassSheet, GlassTabBar, etc.) should compose this rather than calling
- * BlurView directly — keeps the blur/fill/edge-highlight recipe in one
- * place. See docs/DESIGN-SYSTEM.md for the rationale behind each layer.
+ * Base glass surface primitive. On iOS 26+ this renders Apple's actual
+ * native Liquid Glass material via `GlassView` (backed by
+ * `UIVisualEffectView`) — real specular refraction, real dynamic light
+ * response, not a drawn approximation. On everything else (older iOS,
+ * Android, web) it falls back to the hand-rolled BlurView + gradient
+ * recipe below, which is a reasonable approximation but not the same
+ * material. Every other glass component should compose THIS rather than
+ * calling GlassView/BlurView directly. See docs/DESIGN-SYSTEM.md.
  */
 export function GlassCard({
   children,
@@ -33,7 +45,23 @@ export function GlassCard({
   tint = 'light',
   borderRadius = radius.md,
   style,
+  interactive = false,
 }: GlassCardProps) {
+  if (Platform.OS === 'ios' && isLiquidGlassAvailable()) {
+    return (
+      <View style={[styles.shadowWrap, { borderRadius }, style]}>
+        <GlassView
+          style={[styles.nativeGlass, { borderRadius }]}
+          glassEffectStyle={nativeGlassStyle[tint]}
+          isInteractive={interactive}
+        >
+          <View style={styles.content}>{children}</View>
+        </GlassView>
+      </View>
+    );
+  }
+
+  // Fallback recipe for iOS < 26, Android, web.
   return (
     <View style={[styles.shadowWrap, { borderRadius }, style]}>
       <BlurView
@@ -69,6 +97,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 24,
     elevation: 8, // Android fallback
+  },
+  nativeGlass: {
+    padding: 0,
   },
   blur: {
     overflow: 'hidden',

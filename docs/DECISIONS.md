@@ -153,3 +153,44 @@ pattern recurs), never inlined in `useStore(s => s.someComputedThing())`.
 (fine for one-off, non-reactive reads via `getState()`) but are now
 documented as unsafe to use as a reactive selector — see the comment on
 `useFoodLogStore`.
+
+---
+
+## 2026-10-29 — Switched glass UI to native `expo-glass-effect` (real Liquid Glass)
+
+**Problem:** The original glass components (`GlassCard`, `GlassButton`,
+`GlassSheet`) were built entirely from `expo-blur`'s `BlurView` +
+`expo-linear-gradient` highlight. That recipe is a drawn approximation —
+flat blur + translucent fill + gradient — and visibly reads as "frosted
+grey box," not Apple's actual Liquid Glass material (dynamic specular
+highlights, light refraction that responds to content behind it).
+
+**Decision:** Adopted `expo-glass-effect` (`GlassView`/`GlassContainer`),
+which wraps iOS 26's native `UIVisualEffectView` Liquid Glass APIs
+directly — this is the real system material, not a reproduction. Used on
+all 3 glass primitives plus the tab bar background. Added `expo-symbols`
+for SF Symbols tab icons (native iOS iconography, not emoji/vector
+approximations) and `expo-image`/`expo-font` as supporting deps.
+
+**Fallback strategy:** `GlassView` only renders the native material on
+iOS 26+. Every component checks `Platform.OS === 'ios' &&
+isLiquidGlassAvailable()` and falls back to the original BlurView recipe
+otherwise (older iOS, Android, web) — so the old implementation isn't
+deleted, it's demoted to the fallback path.
+
+**Added `SettingsScreen`:** the app previously had no way to set or edit
+weight-loss goals at all (height, current/goal weight, target weekly
+rate, activity level) — users were stuck with whatever `BLANK_PROFILE`
+shipped with. Added as a 4th tab. Saving goals now also seeds an initial
+`AdaptivePlan` via `src/utils/planCalculator.ts` (Mifflin-St Jeor BMR +
+activity multiplier + weekly-rate-to-deficit conversion) so the Plan tab
+isn't empty before any backend recalculation has run. This calculator is
+explicitly a placeholder — final adaptive logic belongs server-side per
+the original backend ADR.
+
+**Added photo-upload affordance:** `CameraScreen` already had a
+`launchImageLibraryAsync` call wired up but it was labeled "Choose from
+Library," easy to miss as a camera alternative. Relabeled to "Upload a
+Picture" and restructured the screen's action buttons to show
+Analyze/Retake once a photo is selected, rather than always showing both
+capture entry points.
