@@ -20,7 +20,7 @@ export function PlanScreen() {
   return (
     <ScrollView
       style={[styles.screen, { paddingTop: insets.top + spacing.lg }]}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}
     >
       <Text style={[typography.largeTitle, { color: colors.textPrimary }]}>
         Your Plan

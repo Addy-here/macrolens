@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { Platform, View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import Animated, {
   useSharedValue,
@@ -9,6 +9,15 @@ import Animated, {
 import { springs, typography, colors } from '../../theme';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+// react-native-svg's web shim (WebShape) doesn't reliably interop with
+// Reanimated's `animatedProps` on web — it throws inside
+// `WebShape.render` ("this.tag" resolves oddly through the animated
+// wrapper). This is a web-target-only bug; native iOS/Android use Skia
+// and are unaffected. Render a static (non-animated) circle on web so
+// the screen doesn't crash — the spring animation is a native-platform
+// nicety, not core functionality.
+const USE_ANIMATED_RING = Platform.OS !== 'web';
 
 interface MacroRingProps {
   /** 0-1 progress value (consumed / target). Values > 1 are clamped visually
@@ -61,20 +70,37 @@ export function MacroRing({
           fill="none"
         />
         {/* Progress */}
-        <AnimatedCircle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeDasharray={`${circumference} ${circumference}`}
-          animatedProps={animatedProps}
-          strokeLinecap="round"
-          rotation="-90"
-          originX={size / 2}
-          originY={size / 2}
-        />
+        {USE_ANIMATED_RING ? (
+          <AnimatedCircle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={color}
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeDasharray={`${circumference} ${circumference}`}
+            animatedProps={animatedProps}
+            strokeLinecap="round"
+            rotation="-90"
+            originX={size / 2}
+            originY={size / 2}
+          />
+        ) : (
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={color}
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeDasharray={`${circumference} ${circumference}`}
+            strokeDashoffset={circumference * (1 - Math.min(Math.max(progress, 0), 1))}
+            strokeLinecap="round"
+            rotation="-90"
+            originX={size / 2}
+            originY={size / 2}
+          />
+        )}
       </Svg>
       <View style={styles.center}>
         {valueText && (
