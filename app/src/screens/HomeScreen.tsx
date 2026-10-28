@@ -59,7 +59,7 @@ export function HomeScreen() {
         Today
       </Text>
 
-      <GlassCard style={styles.ringsCard} elevation="card" tint="light">
+      <GlassCard style={styles.ringsCard} elevation="card" tint="light" padding={spacing.lg}>
         <View style={styles.ringsRow}>
           <MacroRing
             progress={totals.calories / targetCalories}
@@ -103,7 +103,7 @@ export function HomeScreen() {
       </Text>
       {/* Food log list — wired up once FoodLogScreen/review flow exists. */}
       <GlassCard style={{ marginTop: spacing.md }} elevation="card" tint="light">
-        <Text style={[typography.body, { color: colors.textSecondary, padding: spacing.md }]}>
+        <Text style={[typography.body, { color: colors.textSecondary }]}>
           No meals logged yet. Tap the camera tab to add your first one.
         </Text>
       </GlassCard>
@@ -122,7 +122,6 @@ const styles = StyleSheet.create({
   },
   ringsCard: {
     marginTop: spacing.lg,
-    paddingVertical: spacing.lg,
   },
   ringsRow: {
     alignItems: 'center',

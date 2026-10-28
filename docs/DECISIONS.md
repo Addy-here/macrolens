@@ -267,3 +267,44 @@ themselves how would they do it" — i.e. default to native platform
 primitives and system conventions over custom-built UI wherever Apple
 provides a real one (this directly motivated the `NativeTabs` migration
 above).
+
+---
+
+## 2026-10-29 — Bugfix: `GlassCard` had no default internal padding (content rendering flush against rounded corners)
+
+**Symptom (user-reported, screenshot):** `PlanScreen`'s "Weight trend"
+card showed its caption text running right up against the card's bottom
+rounded corner — visually read as "content spilling out of the card."
+
+**Root cause, two compounding issues:**
+1. `GlassCard`'s inner `content` View had **no padding at all** by
+   default — every call site had to remember to add its own padding.
+2. The `style` prop only reaches the card's **outer** wrapper (margin,
+   width, etc.) — it is never applied to the inner content View. Several
+   screens (`PlanScreen`, `FoodReviewScreen`) were passing
+   `padding: spacing.md` through `style={styles.card}`, which silently
+   did nothing — the padding never reached the children. `SettingsScreen`
+   passed no padding at all anywhere. Both patterns produced the same
+   "text flush against the edge" bug; it was only visually obvious on
+   screens with short/single-line content.
+
+**Fix:** `GlassCard` now takes an explicit `padding` prop (default
+`spacing.md`) applied directly to the inner content View in both the
+native-glass and BlurView-fallback render branches, so every card is
+padded correctly out of the box with zero per-screen boilerplate. Cards
+that need edge-to-edge content (e.g. `CameraScreen`'s photo preview)
+pass `padding={0}` explicitly. Cleaned up the now-dead
+`padding`/`paddingVertical` keys that were silently no-ops inside
+`style={...}` across `HomeScreen`, `PlanScreen`, `FoodReviewScreen`.
+
+**Rule going forward:** Any reusable surface/container component
+(`GlassCard`, future `GlassSheet` call sites, etc.) must default its own
+internal spacing — never require every call site to remember to pad
+itself. If a component accepts both an outer `style` prop and needs
+internal spacing, give it a **separate, explicitly-named prop** (e.g.
+`padding`, not overloading `style`) so it's structurally impossible to
+pass padding that silently gets swallowed by the wrong layer. Verify any
+new "safe-by-default" component prop like this with a bare,
+no-extra-props call site (e.g. `<GlassCard><Text>...</Text></GlassCard>`)
+as part of the component's own visual check, not just the heavily-styled
+call sites that happened to pad themselves by coincidence.

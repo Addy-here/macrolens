@@ -3,7 +3,7 @@ import { Platform, StyleSheet, View, ViewStyle } from 'react-native';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, radius, blur } from '../../theme';
+import { colors, radius, spacing, blur } from '../../theme';
 
 type Elevation = 'card' | 'sheet' | 'tabBar';
 type GlassTint = 'light' | 'medium' | 'strong';
@@ -13,6 +13,18 @@ interface GlassCardProps {
   elevation?: Elevation;
   tint?: GlassTint;
   borderRadius?: number;
+  /**
+   * Internal content padding. Defaults to `spacing.md` so every GlassCard
+   * is safe-by-default — content never has to remember to pad itself away
+   * from the rounded corners (a bug that previously hit PlanScreen and
+   * SettingsScreen: cards with no explicit padding rendered text flush
+   * against the edges, looking like it was "spilling out"). Pass `0`
+   * explicitly to opt out (e.g. when the child is an edge-to-edge Image).
+   */
+  padding?: number;
+  /** Outer layout only (margin, width, flex, etc.) — NOT applied inside
+   * the card. Use the `padding` prop for internal spacing, never put
+   * `padding` in `style`, it won't reach the content. */
   style?: ViewStyle;
   interactive?: boolean;
 }
@@ -44,6 +56,7 @@ export function GlassCard({
   elevation = 'card',
   tint = 'light',
   borderRadius = radius.md,
+  padding = spacing.md,
   style,
   interactive = false,
 }: GlassCardProps) {
@@ -55,7 +68,7 @@ export function GlassCard({
           glassEffectStyle={nativeGlassStyle[tint]}
           isInteractive={interactive}
         >
-          <View style={styles.content}>{children}</View>
+          <View style={[styles.content, { padding }]}>{children}</View>
         </GlassView>
       </View>
     );
@@ -83,7 +96,7 @@ export function GlassCard({
             end={{ x: 0.5, y: 1 }}
           />
           <View style={[styles.border, { borderRadius }]} />
-          <View style={styles.content}>{children}</View>
+          <View style={[styles.content, { padding }]}>{children}</View>
         </View>
       </BlurView>
     </View>

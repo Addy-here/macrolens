@@ -55,12 +55,12 @@ export function CameraScreen() {
 
       <View style={styles.previewArea}>
         {photoUri ? (
-          <GlassCard style={styles.previewCard} elevation="card" tint="medium">
+          <GlassCard style={styles.previewCard} elevation="card" tint="medium" padding={0}>
             <Image source={{ uri: photoUri }} style={styles.preview} />
           </GlassCard>
         ) : (
           <GlassCard style={styles.previewCard} elevation="card" tint="light">
-            <Text style={[typography.body, { color: colors.textTertiary, textAlign: 'center', padding: spacing.xl }]}>
+            <Text style={[typography.body, { color: colors.textTertiary, textAlign: 'center' }]}>
               Take a photo of your meal to get started.
             </Text>
           </GlassCard>

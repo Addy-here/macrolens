@@ -128,7 +128,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   itemCard: {
-    padding: spacing.md,
   },
   itemHeader: {
     flexDirection: 'row',

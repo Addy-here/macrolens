@@ -84,6 +84,5 @@ const styles = StyleSheet.create({
   },
   card: {
     marginTop: spacing.md,
-    padding: spacing.md,
   },
 });
