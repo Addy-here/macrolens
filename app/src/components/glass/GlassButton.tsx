@@ -4,12 +4,12 @@ import {
   Pressable,
   Text,
   StyleSheet,
+  View,
   ViewStyle,
   GestureResponderEvent,
 } from 'react-native';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { colors, radius, typography } from '../../theme';
 
@@ -35,33 +35,36 @@ export function GlassButton({
   style,
 }: GlassButtonProps) {
   const handlePress = (e: GestureResponderEvent) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress(e);
+  };
+
+  const accessibility = {
+    accessibilityRole: 'button' as const,
+    accessibilityLabel: label,
+    accessibilityState: { disabled: !!disabled },
   };
 
   if (variant === 'primary') {
     return (
       <Pressable
+        {...accessibility}
         onPress={handlePress}
         disabled={disabled}
         style={[styles.shadowWrap, style]}
       >
-        <LinearGradient
-          colors={[colors.accent, colors.accentSecondary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.base, disabled && styles.disabled]}
-        >
-          <Text style={[styles.label, { color: colors.background }]}>
+        <View style={[styles.base, disabled ? styles.primaryOff : styles.primary]}>
+          <Text style={[styles.label, { color: disabled ? colors.textTertiary : colors.onAccent }]}>
             {label}
           </Text>
-        </LinearGradient>
+        </View>
       </Pressable>
     );
   }
 
   return (
     <Pressable
+      {...accessibility}
       onPress={handlePress}
       disabled={disabled}
       style={[styles.shadowWrap, style]}
@@ -86,20 +89,24 @@ export function GlassButton({
 const styles = StyleSheet.create({
   shadowWrap: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
   },
   base: {
+    minHeight: 52,
     paddingVertical: 14,
     paddingHorizontal: 24,
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  disabled: {
-    opacity: 0.4,
+  primary: {
+    backgroundColor: colors.accent,
+  },
+  primaryOff: {
+    backgroundColor: colors.surfaceRaised,
   },
   label: {
     ...typography.bodyEmphasized,

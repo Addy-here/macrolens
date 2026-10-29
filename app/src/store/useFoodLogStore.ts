@@ -1,4 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import type { FoodLogEntry, Macros } from '../types';
 
 interface FoodLogState {
@@ -21,33 +23,40 @@ interface FoodLogState {
 
 const emptyMacros: Macros = { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 };
 
-export const useFoodLogStore = create<FoodLogState>((set, get) => ({
-  entries: [],
+export const useFoodLogStore = create<FoodLogState>()(
+  persist(
+    (set, get) => ({
+      entries: [],
 
-  addEntry: (entry) =>
-    set((state) => ({ entries: [...state.entries, entry] })),
+      addEntry: (entry) => set((state) => ({ entries: [...state.entries, entry] })),
 
-  removeEntry: (id) =>
-    set((state) => ({ entries: state.entries.filter((e) => e.id !== id) })),
+      removeEntry: (id) =>
+        set((state) => ({ entries: state.entries.filter((entry) => entry.id !== id) })),
 
-  updateEntry: (id, patch) =>
-    set((state) => ({
-      entries: state.entries.map((e) => (e.id === id ? { ...e, ...patch } : e)),
-    })),
+      updateEntry: (id, patch) =>
+        set((state) => ({
+          entries: state.entries.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)),
+        })),
 
-  entriesForDate: (isoDate) =>
-    get().entries.filter((e) => e.loggedAt.startsWith(isoDate)),
+      entriesForDate: (isoDate) => get().entries.filter((entry) => entry.loggedAt.startsWith(isoDate)),
 
-  totalsForDate: (isoDate) =>
-    get()
-      .entriesForDate(isoDate)
-      .reduce<Macros>(
-        (acc, entry) => ({
-          calories: acc.calories + entry.totalMacros.calories,
-          proteinG: acc.proteinG + entry.totalMacros.proteinG,
-          carbsG: acc.carbsG + entry.totalMacros.carbsG,
-          fatG: acc.fatG + entry.totalMacros.fatG,
-        }),
-        { ...emptyMacros },
-      ),
-}));
+      totalsForDate: (isoDate) =>
+        get()
+          .entriesForDate(isoDate)
+          .reduce<Macros>(
+            (acc, entry) => ({
+              calories: acc.calories + entry.totalMacros.calories,
+              proteinG: acc.proteinG + entry.totalMacros.proteinG,
+              carbsG: acc.carbsG + entry.totalMacros.carbsG,
+              fatG: acc.fatG + entry.totalMacros.fatG,
+            }),
+            { ...emptyMacros },
+          ),
+    }),
+    {
+      name: 'macrolens-food-log',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({ entries: state.entries }),
+    },
+  ),
+);

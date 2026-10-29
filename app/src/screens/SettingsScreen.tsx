@@ -1,22 +1,24 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GlassCard, GlassButton } from '../components/glass';
-import { colors, spacing, typography, radius } from '../theme';
+import { AiKeySection } from '../components/AiKeySection';
+import { GlassButton } from '../components/glass';
+import { Panel } from '../components/ui/Panel';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
+import { colors, spacing, typography } from '../theme';
 import { useUserStore } from '../store/useUserStore';
 import { usePlanStore } from '../store/usePlanStore';
 import { calculateInitialPlan } from '../utils/planCalculator';
 import type { ActivityLevel, UserProfile } from '../types';
 
-const ACTIVITY_LEVELS: { key: ActivityLevel; label: string }[] = [
-  { key: 'sedentary', label: 'Sedentary' },
-  { key: 'light', label: 'Lightly active' },
-  { key: 'moderate', label: 'Moderately active' },
-  { key: 'active', label: 'Active' },
-  { key: 'very-active', label: 'Very active' },
+const ACTIVITY_LEVELS: { key: ActivityLevel; label: string; detail: string }[] = [
+  { key: 'sedentary', label: 'Sedentary', detail: 'Desk, little walking' },
+  { key: 'light', label: 'Lightly active', detail: 'Walking most days' },
+  { key: 'moderate', label: 'Moderately active', detail: 'Exercise a few times a week' },
+  { key: 'active', label: 'Active', detail: 'Hard sessions most days' },
+  { key: 'very-active', label: 'Very active', detail: 'Training twice a day' },
 ];
 
-/** Default profile shown until the user has actually onboarded/saved one. */
 const BLANK_PROFILE: UserProfile = {
   id: 'local-user',
   heightCm: 175,
@@ -28,14 +30,6 @@ const BLANK_PROFILE: UserProfile = {
   sex: 'other',
 };
 
-/**
- * Settings & Goals — the screen that was missing entirely before. Lets
- * the user set/edit height, current & goal weight, target weekly rate of
- * change, activity level, and sex (for BMR calc). This is what feeds the
- * initial AdaptivePlan calculation and is re-editable at any time — the
- * weekly adaptive recalculation (see docs/PRODUCT.md) adjusts targets
- * around whatever is saved here, it doesn't replace it.
- */
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const profile = useUserStore((s) => s.profile);
@@ -44,6 +38,7 @@ export function SettingsScreen() {
   const currentPlan = usePlanStore((s) => s.currentPlan);
 
   const [draft, setDraft] = useState<UserProfile>(profile ?? BLANK_PROFILE);
+  const [saved, setSaved] = useState(false);
 
   const bmiPreview = useMemo(() => {
     const heightM = draft.heightCm / 100;
@@ -60,106 +55,93 @@ export function SettingsScreen() {
 
   function patch<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
     setDraft((prev) => ({ ...prev, [key]: value }));
+    setSaved(false);
   }
 
   function handleSave() {
     setProfile(draft);
-    // Seed an initial plan immediately so the Plan tab has something to
-    // show before any backend weekly recalculation has run (see
-    // src/utils/planCalculator.ts for caveats — placeholder algorithm).
-    if (!currentPlan) {
-      setPlan(calculateInitialPlan(draft));
+    const next = calculateInitialPlan(draft);
+    if (currentPlan) {
+      next.previousTargetCalories = currentPlan.targetCalories;
+      next.changeReason = 'Updated from the goals you just saved.';
     }
+    setPlan(next);
+    setSaved(true);
   }
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + spacing.md }]}>
+    <View style={[styles.screen, { paddingTop: insets.top + spacing.sm }]}>
       <ScrollView
         contentContainerStyle={{
-          paddingHorizontal: spacing.md,
-          paddingBottom: insets.bottom + spacing.xl,
-          gap: spacing.md,
+          paddingHorizontal: spacing.lg,
+          paddingBottom: insets.bottom + spacing.xxl + spacing.xl,
         }}
       >
-        <Text style={[typography.largeTitle, { color: colors.textPrimary }]}>
-          Goals & Plan
-        </Text>
+        <ScreenHeader title="Settings" detail="Goals set this week’s calories. Keys stay on this iPhone." />
 
-        <GlassCard>
-          <Text style={styles.sectionLabel}>Body</Text>
+        <AiKeySection />
+
+        <Text style={styles.groupTitle}>Body</Text>
+        <Panel padded={false}>
+          <NumberRow label="Height" unit="cm" value={draft.heightCm} onChange={(v) => patch('heightCm', v)} />
           <NumberRow
-            label="Height (cm)"
-            value={draft.heightCm}
-            onChange={(v) => patch('heightCm', v)}
-          />
-          <NumberRow
-            label="Current weight (kg)"
+            label="Current weight"
+            unit="kg"
             value={draft.startingWeightKg}
             onChange={(v) => patch('startingWeightKg', v)}
           />
           <NumberRow
-            label="Goal weight (kg)"
+            label="Goal weight"
+            unit="kg"
             value={draft.goalWeightKg}
             onChange={(v) => patch('goalWeightKg', v)}
+            last
           />
-          {bmiPreview && (
-            <Text style={styles.hint}>Current BMI: {bmiPreview}</Text>
-          )}
-        </GlassCard>
+          {bmiPreview ? <Text style={styles.footerNote}>BMI {bmiPreview}</Text> : null}
+        </Panel>
 
-        <GlassCard>
-          <Text style={styles.sectionLabel}>Target pace</Text>
+        <Text style={styles.groupTitle}>Pace</Text>
+        <Panel padded={false}>
           <NumberRow
-            label="kg per week (negative = lose)"
+            label="Per week"
+            unit="kg"
             value={draft.targetRateKgPerWeek}
-            step={0.1}
             onChange={(v) => patch('targetRateKgPerWeek', v)}
+            last
           />
-          {weeksToGoal !== null && (
-            <Text style={styles.hint}>
-              ≈ {weeksToGoal} week{weeksToGoal === 1 ? '' : 's'} to reach your
-              goal at this pace
-            </Text>
-          )}
-          <Text style={styles.warning}>
-            A safe sustainable range is roughly −1.0 to −0.25 kg/week.
-            Faster isn't better — the adaptive plan will fight you on it.
+          <Text style={styles.footerNote}>
+            {weeksToGoal !== null
+              ? `About ${weeksToGoal} week${weeksToGoal === 1 ? '' : 's'} at this pace. A steady range is −1.0 to −0.25 kg.`
+              : 'Negative loses weight. A steady range is −1.0 to −0.25 kg a week.'}
           </Text>
-        </GlassCard>
+        </Panel>
 
-        <GlassCard>
-          <Text style={styles.sectionLabel}>Activity level</Text>
-          <View style={styles.chipRow}>
-            {ACTIVITY_LEVELS.map((level) => {
-              const active = draft.activityLevel === level.key;
-              return (
-                <View
-                  key={level.key}
-                  style={[styles.chip, active && styles.chipActive]}
-                  onTouchEnd={() => patch('activityLevel', level.key)}
-                >
-                  <Text
-                    style={[
-                      styles.chipLabel,
-                      active && styles.chipLabelActive,
-                    ]}
-                  >
-                    {level.label}
-                  </Text>
+        <Text style={styles.groupTitle}>Activity</Text>
+        <Panel padded={false}>
+          {ACTIVITY_LEVELS.map((level, index) => {
+            const active = draft.activityLevel === level.key;
+            return (
+              <Pressable
+                key={level.key}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => patch('activityLevel', level.key)}
+                style={[styles.choice, index > 0 && styles.divider]}
+              >
+                <View style={styles.choiceCopy}>
+                  <Text style={[styles.choiceLabel, active && styles.choiceLabelOn]}>{level.label}</Text>
+                  <Text style={styles.choiceDetail}>{level.detail}</Text>
                 </View>
-              );
-            })}
-          </View>
-        </GlassCard>
+                <View style={[styles.mark, active && styles.markOn]} />
+              </Pressable>
+            );
+          })}
+        </Panel>
 
-        <GlassButton label="Save goals" variant="primary" onPress={handleSave} />
-
-        {profile && (
-          <Text style={styles.savedHint}>
-            Saved. Your weekly adaptive plan will recalculate from this
-            baseline using your logged weight trend.
-          </Text>
-        )}
+        <View style={styles.save}>
+          <GlassButton label="Save goals" variant="primary" onPress={handleSave} />
+          {saved ? <Text style={styles.saved}>Saved. This week’s target is on Plan.</Text> : null}
+        </View>
       </ScrollView>
     </View>
   );
@@ -167,27 +149,32 @@ export function SettingsScreen() {
 
 function NumberRow({
   label,
+  unit,
   value,
   onChange,
-  step = 1,
+  last = false,
 }: {
   label: string;
+  unit: string;
   value: number;
   onChange: (v: number) => void;
-  step?: number;
+  last?: boolean;
 }) {
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, !last && styles.divider]}>
       <Text style={styles.rowLabel}>{label}</Text>
       <TextInput
         style={styles.input}
-        keyboardType="numeric"
+        keyboardType="decimal-pad"
+        keyboardAppearance="dark"
         defaultValue={String(value)}
+        accessibilityLabel={`${label} in ${unit}`}
         onEndEditing={(e) => {
           const parsed = parseFloat(e.nativeEvent.text);
           if (!Number.isNaN(parsed)) onChange(parsed);
         }}
       />
+      <Text style={styles.unit}>{unit}</Text>
     </View>
   );
 }
@@ -197,18 +184,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  sectionLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
+  groupTitle: {
+    ...typography.eyebrow,
+    color: colors.textTertiary,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    marginTop: spacing.lg,
     marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  divider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.hairline,
   },
   rowLabel: {
     ...typography.body,
@@ -218,45 +211,58 @@ const styles = StyleSheet.create({
   input: {
     ...typography.bodyEmphasized,
     color: colors.textPrimary,
-    minWidth: 70,
+    minWidth: 64,
     textAlign: 'right',
   },
-  hint: {
+  unit: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    width: 28,
+  },
+  footerNote: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  warning: {
-    ...typography.caption,
-    color: colors.warning,
-    marginTop: spacing.sm,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  chip: {
-    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
-    backgroundColor: colors.glassLight,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
+    paddingBottom: spacing.md,
   },
-  chipActive: {
+  choice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  choiceCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  choiceLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  choiceLabelOn: {
+    color: colors.accent,
+  },
+  choiceDetail: {
+    ...typography.caption,
+    color: colors.textTertiary,
+  },
+  mark: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  markOn: {
     backgroundColor: colors.accent,
     borderColor: colors.accent,
   },
-  chipLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
+  save: {
+    marginTop: spacing.xl,
+    gap: spacing.sm,
   },
-  chipLabelActive: {
-    color: colors.background,
-    fontWeight: '700',
-  },
-  savedHint: {
+  saved: {
     ...typography.caption,
     color: colors.success,
     textAlign: 'center',

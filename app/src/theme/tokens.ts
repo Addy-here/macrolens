@@ -13,22 +13,41 @@ export const spacing = {
 } as const;
 
 export const radius = {
-  sm: 16,   // small chips/buttons
-  md: 20,   // standard cards
-  lg: 28,   // large cards, sheets
-  pill: 999, // tab bars, primary CTAs
+  sm: 12,
+  md: 22,
+  lg: 28,
+  pill: 999,
 } as const;
 
 export const typography = {
-  largeTitle: { fontSize: 34, fontWeight: '700' as const, letterSpacing: 0.3 },
-  title: { fontSize: 22, fontWeight: '600' as const },
-  body: { fontSize: 17, fontWeight: '400' as const },
-  bodyEmphasized: { fontSize: 17, fontWeight: '600' as const },
-  caption: { fontSize: 13, fontWeight: '500' as const },
-  // Numbers (calories, macros, weight) — slightly heavier, meant for
-  // tabular/aligned digit display per the design system doc.
-  statLarge: { fontSize: 36, fontWeight: '700' as const },
-  statMedium: { fontSize: 20, fontWeight: '700' as const },
+  largeTitle: { fontSize: 34, fontWeight: '700' as const, letterSpacing: -0.6 },
+  title: { fontSize: 22, fontWeight: '600' as const, letterSpacing: -0.3 },
+  body: { fontSize: 17, fontWeight: '400' as const, letterSpacing: -0.2 },
+  bodyEmphasized: { fontSize: 17, fontWeight: '600' as const, letterSpacing: -0.2 },
+  caption: { fontSize: 13, fontWeight: '500' as const, letterSpacing: -0.1 },
+  eyebrow: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    letterSpacing: 0.6,
+  },
+  hero: {
+    fontSize: 56,
+    fontWeight: '700' as const,
+    letterSpacing: -1.8,
+    fontVariant: ['tabular-nums'] as ('tabular-nums')[],
+  },
+  statLarge: {
+    fontSize: 34,
+    fontWeight: '700' as const,
+    letterSpacing: -0.8,
+    fontVariant: ['tabular-nums'] as ('tabular-nums')[],
+  },
+  statMedium: {
+    fontSize: 20,
+    fontWeight: '600' as const,
+    letterSpacing: -0.3,
+    fontVariant: ['tabular-nums'] as ('tabular-nums')[],
+  },
 } as const;
 
 /** Spring configs for react-native-reanimated — "physical, not linear" motion. */

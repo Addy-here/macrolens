@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Platform, View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { AccessibilityInfo, Platform, View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import Animated, {
   useSharedValue,
@@ -47,30 +47,48 @@ export function MacroRing({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const animatedProgress = useSharedValue(0);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const animate = USE_ANIMATED_RING && !reduceMotion;
+
+  useEffect(() => {
+    let mounted = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (mounted) setReduceMotion(enabled);
+    });
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const clamped = Math.min(Math.max(progress, 0), 1);
-    animatedProgress.value = withSpring(clamped, springs.default);
-  }, [progress]);
+    animatedProgress.value = animate ? withSpring(clamped, springs.default) : clamped;
+  }, [animate, animatedProgress, progress]);
 
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: circumference * (1 - animatedProgress.value),
   }));
 
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View
+      accessible={Boolean(valueText || label)}
+      accessibilityLabel={`${valueText ?? ''} ${label ?? ''}`.trim()}
+      style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
+    >
       <Svg width={size} height={size}>
         {/* Track */}
         <Circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={colors.glassBorder}
+          stroke={colors.track}
           strokeWidth={strokeWidth}
           fill="none"
         />
         {/* Progress */}
-        {USE_ANIMATED_RING ? (
+        {animate ? (
           <AnimatedCircle
             cx={size / 2}
             cy={size / 2}

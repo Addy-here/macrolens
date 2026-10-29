@@ -50,9 +50,11 @@ macrolens/
 - **State:** Zustand stores per domain (`useFoodLogStore`, `useUserStore`,
   `usePlanStore`). Keep stores thin — business logic (macro math, TDEE calc)
   lives in `src/utils/`, stores just hold state + call utils.
-- **AI vision calls are server-side**, never call the vision API directly
-  from the RN app with an embedded key. The app calls our backend, which
-  calls the vision provider. See `docs/DECISIONS.md` for provider choice.
+- **AI is bring-your-own-key.** The user's key lives in the iOS keychain
+  (`expo-secure-store`) and the app calls the provider they chose. Never
+  embed a Macrolens-owned key. A backend proxy can replace this later;
+  until then do not route around BYOK. See the BYOK ADR in
+  `docs/DECISIONS.md`.
 - **Review-before-save is a hard product requirement** (this is the #1
   reason MacroFactor beats Cal AI in head-to-head reviews — see PRODUCT.md).
   Never auto-commit an AI food estimate straight to the log.

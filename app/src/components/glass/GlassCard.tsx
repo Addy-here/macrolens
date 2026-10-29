@@ -60,15 +60,17 @@ export function GlassCard({
   style,
   interactive = false,
 }: GlassCardProps) {
+  const stretch = style?.flex != null ? styles.flexFill : undefined;
+
   if (Platform.OS === 'ios' && isLiquidGlassAvailable()) {
     return (
       <View style={[styles.shadowWrap, { borderRadius }, style]}>
         <GlassView
-          style={[styles.nativeGlass, { borderRadius }]}
+          style={[styles.nativeGlass, { borderRadius }, stretch]}
           glassEffectStyle={nativeGlassStyle[tint]}
           isInteractive={interactive}
         >
-          <View style={[styles.content, { padding }]}>{children}</View>
+          <View style={[styles.content, { padding }, stretch]}>{children}</View>
         </GlassView>
       </View>
     );
@@ -80,11 +82,12 @@ export function GlassCard({
       <BlurView
         intensity={blur[elevation]}
         tint="dark"
-        style={[styles.blur, { borderRadius }]}
+        style={[styles.blur, { borderRadius }, stretch]}
       >
         <View
           style={[
             styles.fill,
+            stretch,
             { backgroundColor: tintFill[tint], borderRadius },
           ]}
         >
@@ -96,7 +99,7 @@ export function GlassCard({
             end={{ x: 0.5, y: 1 }}
           />
           <View style={[styles.border, { borderRadius }]} />
-          <View style={[styles.content, { padding }]}>{children}</View>
+          <View style={[styles.content, { padding }, stretch]}>{children}</View>
         </View>
       </BlurView>
     </View>
@@ -106,19 +109,23 @@ export function GlassCard({
 const styles = StyleSheet.create({
   shadowWrap: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
     elevation: 8, // Android fallback
   },
   nativeGlass: {
     padding: 0,
+    overflow: 'hidden',
   },
   blur: {
     overflow: 'hidden',
   },
   fill: {
     overflow: 'hidden',
+  },
+  flexFill: {
+    flex: 1,
   },
   highlight: {
     position: 'absolute',

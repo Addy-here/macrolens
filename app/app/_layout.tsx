@@ -1,8 +1,13 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { Appearance } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { colors } from '../src/theme';
+import { useAiKeyStore } from '../src/store/useAiKeyStore';
+
+Appearance.setColorScheme('dark');
 
 /**
  * Root layout for the whole app (expo-router). Wraps every route in the
@@ -11,11 +16,36 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
  * expo-router NativeTabs for a genuinely native tab bar").
  */
 export default function RootLayout() {
+  const hydrate = useAiKeyStore((s) => s.hydrate);
+
+  useEffect(() => {
+    void hydrate();
+  }, [hydrate]);
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <SafeAreaProvider>
-        <Stack screenOptions={{ headerShown: false }}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        >
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen
+            name="review"
+            options={{
+              presentation: 'formSheet',
+              headerShown: true,
+              title: 'Review',
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors.textPrimary,
+              headerTitleStyle: { color: colors.textPrimary },
+              contentStyle: { backgroundColor: colors.background },
+              sheetGrabberVisible: true,
+              sheetAllowedDetents: [0.92, 1],
+            }}
+          />
         </Stack>
         <StatusBar style="light" />
       </SafeAreaProvider>

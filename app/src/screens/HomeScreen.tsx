@@ -1,26 +1,45 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GlassCard, MacroRing } from '../components/glass';
+import { MacroRing } from '../components/glass';
+import { MacroBar } from '../components/ui/MacroBar';
+import { Panel } from '../components/ui/Panel';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
+import { TextButton } from '../components/ui/TextButton';
 import { colors, spacing, typography } from '../theme';
 import { useFoodLogStore } from '../store/useFoodLogStore';
 import { usePlanStore } from '../store/usePlanStore';
-import type { Macros } from '../types';
+import { sumMacros } from '../utils/macros';
 
-const emptyMacros: Macros = { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 };
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+function WarmGlow({ color, size }: { color: string; size: number }) {
+  const id = `warm-${color.replace('#', '')}`;
+  return (
+    <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+      <Defs>
+        <RadialGradient id={id} cx="50%" cy="50%" r="50%">
+          <Stop offset="0" stopColor={color} stopOpacity={0.34} />
+          <Stop offset="0.55" stopColor={color} stopOpacity={0.1} />
+          <Stop offset="1" stopColor={color} stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${id})`} />
+    </Svg>
+  );
+}
+
+function titleCase(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
 
 /**
- * Home / Today screen — daily macro rings + recent log entries.
- * See docs/PRODUCT.md "Macro & micro tracking" and docs/DESIGN-SYSTEM.md
- * for the ring layout rationale.
- *
- * NOTE: totals are computed here with useMemo from the raw `entries`
- * array, NOT via a store selector that calls `.reduce()` inline — a
- * selector returning a freshly-allocated object every render causes
- * Zustand's useSyncExternalStore to see a "changed" snapshot every time,
- * which is an infinite render loop ("getSnapshot should be cached"). Keep
- * derived/aggregated values out of store selectors; compute them in the
- * component (or with a memoized selector) instead.
+ * Totals are derived here from `entries`, not inside a Zustand selector.
+ * A selector that returns a new object every call loops forever.
  */
 export function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -28,85 +47,110 @@ export function HomeScreen() {
   const entries = useFoodLogStore((s) => s.entries);
   const plan = usePlanStore((s) => s.currentPlan);
 
-  const totals = useMemo(() => {
-    return entries
-      .filter((e) => e.loggedAt.startsWith(todayIso))
-      .reduce<Macros>(
-        (acc, entry) => ({
-          calories: acc.calories + entry.totalMacros.calories,
-          proteinG: acc.proteinG + entry.totalMacros.proteinG,
-          carbsG: acc.carbsG + entry.totalMacros.carbsG,
-          fatG: acc.fatG + entry.totalMacros.fatG,
-        }),
-        { ...emptyMacros },
-      );
-  }, [entries, todayIso]);
+  const todayEntries = useMemo(
+    () =>
+      entries
+        .filter((entry) => entry.loggedAt.startsWith(todayIso))
+        .slice()
+        .sort((a, b) => b.loggedAt.localeCompare(a.loggedAt)),
+    [entries, todayIso],
+  );
+
+  const totals = useMemo(
+    () => sumMacros(todayEntries.map((entry) => entry.totalMacros)),
+    [todayEntries],
+  );
 
   const targetCalories = plan?.targetCalories ?? 2000;
   const targetMacros = plan?.targetMacros ?? {
-    calories: 2000,
+    calories: targetCalories,
     proteinG: 150,
     carbsG: 200,
     fatG: 65,
   };
+  const eaten = Math.round(totals.calories);
+  const remaining = targetCalories - eaten;
+  const over = remaining < 0;
+  const dateLabel = new Date().toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
 
   return (
     <ScrollView
-      style={[styles.screen, { paddingTop: insets.top + spacing.lg }]}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}
+      style={[styles.screen, { paddingTop: insets.top + spacing.sm }]}
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl + spacing.lg }]}
     >
-      <Text style={[typography.largeTitle, { color: colors.textPrimary }]}>
-        Today
-      </Text>
+      <ScreenHeader eyebrow={dateLabel} title="Today" />
 
-      <GlassCard style={styles.ringsCard} elevation="card" tint="light" padding={spacing.lg}>
-        <View style={styles.ringsRow}>
+      <View style={styles.hero}>
+        <View
+          accessible
+          accessibilityLabel={`${Math.abs(remaining).toLocaleString()} ${over ? 'over today' : 'left today'}`}
+          style={styles.glow}
+        >
+          <WarmGlow color={over ? colors.danger : colors.accent} size={200} />
           <MacroRing
-            progress={totals.calories / targetCalories}
-            color={colors.calories}
-            size={140}
-            strokeWidth={14}
-            label="Calories"
-            valueText={`${Math.round(totals.calories)}`}
+            progress={targetCalories > 0 ? eaten / targetCalories : 0}
+            color={over ? colors.danger : colors.accent}
+            size={168}
+            strokeWidth={11}
           />
+          <View style={styles.heroCopy} pointerEvents="none">
+            <Text style={[styles.heroNumber, over && styles.heroOver]} numberOfLines={1} adjustsFontSizeToFit>
+              {Math.abs(remaining).toLocaleString()}
+            </Text>
+            <Text style={styles.heroLabel}>{over ? 'over' : 'left'}</Text>
+          </View>
         </View>
-        <View style={styles.macroRow}>
-          <MacroRing
-            progress={totals.proteinG / targetMacros.proteinG}
-            color={colors.protein}
-            size={84}
-            strokeWidth={8}
-            label="Protein"
-            valueText={`${Math.round(totals.proteinG)}g`}
-          />
-          <MacroRing
-            progress={totals.carbsG / targetMacros.carbsG}
-            color={colors.carbs}
-            size={84}
-            strokeWidth={8}
-            label="Carbs"
-            valueText={`${Math.round(totals.carbsG)}g`}
-          />
-          <MacroRing
-            progress={totals.fatG / targetMacros.fatG}
-            color={colors.fat}
-            size={84}
-            strokeWidth={8}
-            label="Fat"
-            valueText={`${Math.round(totals.fatG)}g`}
-          />
-        </View>
-      </GlassCard>
-
-      <Text style={[typography.title, { color: colors.textPrimary, marginTop: spacing.xl }]}>
-        Recent
-      </Text>
-      {/* Food log list — wired up once FoodLogScreen/review flow exists. */}
-      <GlassCard style={{ marginTop: spacing.md }} elevation="card" tint="light">
-        <Text style={[typography.body, { color: colors.textSecondary }]}>
-          No meals logged yet. Tap the camera tab to add your first one.
+        <Text style={styles.heroMeta}>
+          {eaten.toLocaleString()} of {targetCalories.toLocaleString()} eaten
         </Text>
-      </GlassCard>
+      </View>
+
+      <Panel style={styles.macros}>
+        <MacroBar
+          label="Protein"
+          value={totals.proteinG}
+          target={targetMacros.proteinG}
+          color={colors.protein}
+        />
+        <MacroBar
+          label="Carbs"
+          value={totals.carbsG}
+          target={targetMacros.carbsG}
+          color={colors.carbs}
+        />
+        <MacroBar label="Fat" value={totals.fatG} target={targetMacros.fatG} color={colors.fat} />
+      </Panel>
+
+      <Text style={styles.section}>Meals</Text>
+      {todayEntries.length === 0 ? (
+        <Panel>
+          <Text style={styles.empty}>Nothing logged yet.</Text>
+          <TextButton label="Log a meal" onPress={() => router.push('/log')} />
+        </Panel>
+      ) : (
+        <Panel padded={false}>
+          {todayEntries.map((entry, index) => (
+            <View key={entry.id} style={[styles.meal, index > 0 && styles.mealDivider]}>
+              <View style={styles.mealCopy}>
+                <Text numberOfLines={2} style={styles.mealName}>
+                  {entry.items.map((item) => item.name).join(', ')}
+                </Text>
+                <Text style={styles.mealMeta}>
+                  {titleCase(entry.mealType)} · {formatTime(entry.loggedAt)}
+                </Text>
+              </View>
+              <Text style={styles.mealKcal}>
+                {Math.round(entry.totalMacros.calories)}
+                <Text style={styles.mealUnit}> kcal</Text>
+              </Text>
+            </View>
+          ))}
+        </Panel>
+      )}
     </ScrollView>
   );
 }
@@ -118,17 +162,84 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
   },
-  ringsCard: {
-    marginTop: spacing.lg,
-  },
-  ringsRow: {
+  hero: {
     alignItems: 'center',
     marginBottom: spacing.lg,
+    gap: spacing.sm,
   },
-  macroRow: {
+  glow: {
+    width: 200,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroCopy: {
+    position: 'absolute',
+    alignItems: 'center',
+    width: 140,
+  },
+  heroNumber: {
+    ...typography.statLarge,
+    fontSize: 44,
+    letterSpacing: -1.4,
+    color: colors.textPrimary,
+  },
+  heroOver: {
+    color: colors.danger,
+  },
+  heroLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  heroMeta: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  macros: {
+    gap: spacing.md,
+  },
+  section: {
+    ...typography.title,
+    color: colors.textPrimary,
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
+  },
+  empty: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  meal: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  mealDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.hairline,
+  },
+  mealCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  mealName: {
+    ...typography.bodyEmphasized,
+    color: colors.textPrimary,
+  },
+  mealMeta: {
+    ...typography.caption,
+    color: colors.textTertiary,
+  },
+  mealKcal: {
+    ...typography.statMedium,
+    color: colors.textPrimary,
+  },
+  mealUnit: {
+    ...typography.caption,
+    color: colors.textTertiary,
   },
 });

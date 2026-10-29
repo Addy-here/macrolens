@@ -1,4 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import type { AdaptivePlan, WeightEntry } from '../types';
 
 interface PlanState {
@@ -13,26 +15,38 @@ interface PlanState {
   trendWeightKg: (alpha?: number) => number | null;
 }
 
-export const usePlanStore = create<PlanState>((set, get) => ({
-  currentPlan: null,
-  weightHistory: [],
+export const usePlanStore = create<PlanState>()(
+  persist(
+    (set, get) => ({
+      currentPlan: null,
+      weightHistory: [],
 
-  setPlan: (plan) => set({ currentPlan: plan }),
+      setPlan: (plan) => set({ currentPlan: plan }),
 
-  addWeightEntry: (entry) =>
-    set((state) => ({
-      weightHistory: [...state.weightHistory, entry].sort((a, b) =>
-        a.loggedAt.localeCompare(b.loggedAt),
-      ),
-    })),
+      addWeightEntry: (entry) =>
+        set((state) => ({
+          weightHistory: [...state.weightHistory, entry].sort((a, b) =>
+            a.loggedAt.localeCompare(b.loggedAt),
+          ),
+        })),
 
-  trendWeightKg: (alpha = 0.25) => {
-    const history = get().weightHistory;
-    if (history.length === 0) return null;
-    let trend = history[0].weightKg;
-    for (let i = 1; i < history.length; i++) {
-      trend = alpha * history[i].weightKg + (1 - alpha) * trend;
-    }
-    return trend;
-  },
-}));
+      trendWeightKg: (alpha = 0.25) => {
+        const history = get().weightHistory;
+        if (history.length === 0) return null;
+        let trend = history[0].weightKg;
+        for (let i = 1; i < history.length; i++) {
+          trend = alpha * history[i].weightKg + (1 - alpha) * trend;
+        }
+        return trend;
+      },
+    }),
+    {
+      name: 'macrolens-plan',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        currentPlan: state.currentPlan,
+        weightHistory: state.weightHistory,
+      }),
+    },
+  ),
+);

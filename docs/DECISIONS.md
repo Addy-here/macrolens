@@ -308,3 +308,34 @@ new "safe-by-default" component prop like this with a bare,
 no-extra-props call site (e.g. `<GlassCard><Text>...</Text></GlassCard>`)
 as part of the component's own visual check, not just the heavily-styled
 call sites that happened to pad themselves by coincidence.
+
+---
+
+## 2026-10-28 — AI is bring-your-own-key until a backend exists
+
+**Decision:** Photo analysis calls OpenAI or Anthropic directly from the
+app, using a key the user pastes in Settings. The key is stored in the
+iOS keychain via `expo-secure-store`, never in the log, and never shipped
+inside the app. The user picks the provider. Defaults are `gpt-4.1-mini`
+and `claude-haiku-5-5`. The estimate still cannot be saved until the
+review sheet is confirmed.
+
+**Why:** There is no backend yet, and the user asked to turn AI on by
+letting people bring a key. That keeps a Macrolens-owned secret out of
+the binary (the constraint in the 2026-10-28 vision ADR) while making
+the photo flow real. A later backend proxy can replace the direct call
+without changing the review-before-save rule.
+
+**What else changed with this pass:** The app declares a dark interface
+so the system tab bar uses dark Liquid Glass. The Log screen's pinned
+buttons sit `spacing.xxl` above the tab-bar safe area, because iOS only
+auto-insets the first ScrollView and a footer View was close enough to
+the pill that taps could miss. `GlassCard` now stretches when given
+`flex`, so the photo preview fills the space above those buttons. Goals,
+the food log, and weigh-ins persist on device. Saving goals always
+refreshes the starter plan.
+
+**Alternatives considered:** Keep AI disabled until the Express backend
+exists (rejected — the user wants the feature usable now). Embed one
+shared API key (rejected — it would be extractable, which the original
+ADR forbids).
