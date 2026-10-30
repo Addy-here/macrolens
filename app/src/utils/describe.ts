@@ -533,12 +533,18 @@ export const SPEECH_HINTS: string[] = FOODS.flatMap((food) => food.aliases.slice
   (alias, index, all) => alias.length > 3 && all.indexOf(alias) === index,
 );
 
-/** "2 eggs", "1.5 cups", or "150 g". */
+const FRACTIONS: Record<number, string> = { 0: '', 0.25: '¼', 0.5: '½', 0.75: '¾' };
+
+/** "2 eggs", "½ avocado", "1½ cups", or "150 g". */
 export function portionLabel(item: Pick<FoodItem, 'portionGrams' | 'serving'>) {
   if (item.serving && item.serving.grams > 0) {
     const count = Math.round((item.portionGrams / item.serving.grams) * 4) / 4;
-    const shown = Number.isInteger(count) ? String(count) : String(Math.round(count * 100) / 100);
-    return `${shown} ${count === 1 ? item.serving.label : item.serving.plural}`;
+    if (count > 0) {
+      const whole = Math.floor(count);
+      const part = FRACTIONS[count - whole] ?? '';
+      const shown = `${whole > 0 ? whole : ''}${part}`;
+      return `${shown} ${count <= 1 ? item.serving.label : item.serving.plural}`;
+    }
   }
   return `${item.portionGrams} g`;
 }

@@ -82,6 +82,14 @@ describe('parseDescription', () => {
     expect(portionLabel(chicken)).toBe('150 g');
   });
 
+  it('writes part servings as fractions, singular up to one', () => {
+    const serving = { label: 'avocado', plural: 'avocados', grams: 200 };
+    expect(portionLabel({ serving, portionGrams: 100 })).toBe('½ avocado');
+    expect(portionLabel({ serving, portionGrams: 50 })).toBe('¼ avocado');
+    expect(portionLabel({ serving, portionGrams: 300 })).toBe('1½ avocados');
+    expect(portionLabel({ serving, portionGrams: 400 })).toBe('2 avocados');
+  });
+
   it('computes macros from grams', () => {
     const [egg] = parse('2 eggs').items;
     expect(egg.macros.calories).toBe(143);

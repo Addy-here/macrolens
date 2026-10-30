@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../components/ui/Card';
@@ -170,12 +171,12 @@ export function FoodEditorScreen() {
   return (
     <View style={styles.screen}>
       <Stack.Screen options={headerOptions} />
-      <ScrollView
+      <KeyboardAwareScrollView
+        bottomOffset={24}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
-        automaticallyAdjustKeyboardInsets
       >
         <Card padded={false}>
           <Row first label="Name">
@@ -227,7 +228,7 @@ export function FoodEditorScreen() {
             <Text style={styles.deleteText}>Delete Food</Text>
           </Pressable>
         ) : null}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </View>
   );
 }
@@ -260,7 +261,7 @@ function Row({
     <View style={[styles.row, !first && styles.divider]}>
       <Text style={[styles.rowLabel, !strong && styles.rowLabelSoft]}>{label}</Text>
       <View style={styles.rowValue}>{children}</View>
-      {unit ? <Text style={styles.unit}>{unit}</Text> : null}
+      {unit ? <Text style={styles.unit} numberOfLines={1}>{unit}</Text> : null}
     </View>
   );
 }
@@ -345,7 +346,8 @@ const styles = StyleSheet.create({
   unit: {
     ...typography.callout,
     color: colors.textTertiary,
-    width: 32,
+    // A minimum keeps units in a column; larger text widens it instead of breaking "kcal".
+    minWidth: 32,
   },
   rememberCard: {
     marginTop: spacing.lg,

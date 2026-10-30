@@ -118,7 +118,17 @@ Keys: `seed`, `clear`, `go` (URL-encoded route), `y`, `review`, `action`,
 `review.editFirst`, `editor.save`, `today.editFirst`, `today.deleteFirst`,
 `today.addLunch`, `search.addFirst`, `settings.export`, `toast.action`,
 `log.simulateListening` (fakes a voice level and transcript, since real
-recognition can't run in this simulator).
+recognition can't run in this simulator), `log.focus`, `log.simulatePhoto`,
+`log.simulatePhotoError`, `plan.focusWeight`, `settings.focusKey` (the last
+two open the keyboard on that field).
+
+Before calling UI work done, capture every screen it touches empty, filled,
+with the keyboard up, and at large text
+(`xcrun simctl ui booted content_size accessibility-medium`, relaunch the
+app, and set it back to `large` afterwards). The dev menu's floating button
+is off (`EXDevMenuShowFloatingActionButton` in `app.json`); if an older
+build still shows it over the sheets' top-right buttons, run
+`xcrun simctl spawn booted defaults write com.adwaitmahadar.macrolens EXDevMenuShowFloatingActionButton -bool false`.
 
 Known simulator limits:
 - The iOS 27 simulator's on-device speech model is broken (missing

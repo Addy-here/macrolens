@@ -561,3 +561,43 @@ until there's a backend.
 key exists (rejected: "an apple and a banana" should stay instant and free).
 iCloud sync (rejected for now: needs a paid developer account's iCloud
 entitlement; the backup file covers reinstalls and new phones).
+
+## 2026-10-30 — Log composer, keyboard handling, and a full-app audit
+
+**Decision:**
+- **Composer.** The clear ✕ moved out of the field into the card's title
+  row as a 32 pt gray circle — the shape iOS uses to clear a field, and
+  nowhere near the mic. The add-by-voice mic sits beside Review below the
+  item list. "Review as heard" is a tonal button, not a text link. The
+  floating quick-log bar is hidden on Log, which has the same actions in
+  its card, and the recording bar carries no "Done" label.
+- **No editable transcript while listening.** The live words render as
+  `Text`; the `TextInput` returns when listening stops. A multiline input
+  growing under streaming text keeps scrolling its caret into view, which
+  threw the page upward on every word.
+- **Keyboard:** `react-native-keyboard-controller` (a new native module —
+  rebuild the dev build) replaces `automaticallyAdjustKeyboardInsets` and
+  `Keyboard.metrics()` everywhere: `KeyboardAwareScrollView` on every
+  screen with a field, `KeyboardStickyView` for `SheetFooter`.
+- **Search field** uses `placement: 'stacked'`; the integrated placement
+  put it in the bottom toolbar, under the Done footer, in Add Food.
+- **Badges** follow the item name so AI, edited, and manual items align.
+- **Large text:** hero numbers and segmented labels shrink to fit on one
+  line, units widen instead of breaking, Log's shortcuts stack at
+  accessibility sizes, Plan's unit wraps under the number.
+- **Portions** print as fractions ("½ avocado", not "0.5 avocados").
+- **Dev builds** hide the dev menu's floating button
+  (`EXDevMenuShowFloatingActionButton: false`), which sat on top of every
+  sheet's close and Save buttons; shake still opens the menu.
+
+**Why:** The user found the composer cramped (✕ and mic side by side), the
+page jumping while typing or recording, Done overlapping the search field,
+and badges misaligning names — and asked for every page and flow to be
+checked. Every screen was then captured empty, filled, with the keyboard
+up, and at accessibility text size.
+
+**Alternatives considered:** Keeping the ✕ inside the field with more
+padding (rejected: still next to the mic once text wraps); an editable
+field with `scrollEnabled={false}` while listening (rejected: the caret
+still drives the parent scroll view).
+

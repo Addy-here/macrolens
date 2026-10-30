@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { GlassButton } from '../components/glass';
@@ -12,7 +13,7 @@ import { TrendChart } from '../components/ui/TrendChart';
 import { colors, radius, spacing, typography } from '../theme';
 import { usePlanStore } from '../store/usePlanStore';
 import { useUserStore } from '../store/useUserStore';
-import { useDevAutoScroll } from '../dev/devScroll';
+import { useDevAction, useDevAutoScroll } from '../dev/devScroll';
 import { createId } from '../utils/id';
 import {
   formatKg,
@@ -33,6 +34,8 @@ export function PlanScreen() {
   const scrollRef = useDevAutoScroll('plan');
   const [range, setRange] = useState<WeightRange>('1M');
   const [weightDraft, setWeightDraft] = useState('');
+  const weighRef = useRef<React.ComponentRef<typeof TextInput>>(null);
+  useDevAction('plan.focusWeight', () => weighRef.current?.focus());
 
   const series = useMemo(() => trendSeries(weightHistory), [weightHistory]);
   const visible = useMemo(() => pointsInRange(series, range), [series, range]);
@@ -52,13 +55,14 @@ export function PlanScreen() {
   const rangeChange = visible.length > 1 ? visible[visible.length - 1].trend - visible[0].trend : null;
 
   return (
-    <ScrollView
-      ref={scrollRef}
+    <KeyboardAwareScrollView
+      // Clears the system bar iOS adds above the keyboard (Done, Passwords), which isn't counted in its height.
+      bottomOffset={64}
+      ref={scrollRef as never}
       style={styles.screen}
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
-      automaticallyAdjustKeyboardInsets
     >
       {plan ? <TargetCard plan={plan} /> : <NoPlanCard />}
 
@@ -99,6 +103,7 @@ export function PlanScreen() {
         <View style={styles.weighRow}>
           <View style={styles.weighField}>
             <TextInput
+              ref={weighRef}
               value={weightDraft}
               onChangeText={setWeightDraft}
               keyboardType="decimal-pad"
@@ -121,7 +126,7 @@ export function PlanScreen() {
           </Text>
         ) : null}
       </Card>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 
@@ -148,7 +153,7 @@ function TargetCard({ plan }: { plan: AdaptivePlan }) {
         ) : null}
       </View>
       <View style={styles.heroRow} accessible accessibilityLabel={`${plan.targetCalories} calories a day`}>
-        <Text style={styles.hero}>{plan.targetCalories.toLocaleString()}</Text>
+        <Text style={styles.hero} numberOfLines={1} adjustsFontSizeToFit>{plan.targetCalories.toLocaleString()}</Text>
         <Text style={styles.heroUnit}>kcal a day</Text>
       </View>
 
@@ -292,8 +297,9 @@ const styles = StyleSheet.create({
   },
   heroRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'baseline',
-    gap: spacing.sm,
+    columnGap: spacing.sm,
     marginTop: -spacing.xs,
   },
   hero: {

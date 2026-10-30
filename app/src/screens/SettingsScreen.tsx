@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import type { SFSymbol } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
 import { AiKeySection } from '../components/AiKeySection';
@@ -122,13 +123,14 @@ export function SettingsScreen() {
   const dailyGap = Math.round((-draft.targetRateKgPerWeek * 7700) / 7);
 
   return (
-    <ScrollView
-      ref={scrollRef}
+    <KeyboardAwareScrollView
+      // Clears the system bar iOS adds above the keyboard (Done, Passwords), which isn't counted in its height.
+      bottomOffset={64}
+      ref={scrollRef as never}
       style={styles.screen}
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
-      automaticallyAdjustKeyboardInsets
     >
       <Card style={styles.preview}>
         <View style={styles.previewText}>
@@ -301,7 +303,7 @@ export function SettingsScreen() {
         </>
       ) : null}
 
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 
@@ -349,7 +351,7 @@ function NumberRow({
               else setText(String(value));
             }}
           />
-          <Text style={styles.numberUnit}>{unit ?? ''}</Text>
+          <Text style={styles.numberUnit} numberOfLines={1}>{unit ?? ''}</Text>
         </View>
       }
     />
@@ -422,7 +424,7 @@ const styles = StyleSheet.create({
   numberUnit: {
     ...typography.callout,
     color: colors.textTertiary,
-    width: 24,
+    minWidth: 24,
   },
   pace: {
     gap: spacing.sm + 4,

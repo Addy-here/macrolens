@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { GlassButton } from './glass';
 import { Card } from './ui/Card';
 import { GroupLabel, ListRow } from './ui/ListRow';
 import { AI_MODELS, AI_PROVIDERS, providerLabel } from '../services/aiKey';
 import { useAiKeyStore } from '../store/useAiKeyStore';
+import { useDevAction } from '../dev/devScroll';
 import { colors, radius, spacing, typography } from '../theme';
 
 /**
@@ -22,6 +23,8 @@ export function AiKeySection() {
   const clearKey = useAiKeyStore((s) => s.clearKey);
 
   const [draft, setDraft] = useState('');
+  const keyRef = useRef<React.ComponentRef<typeof TextInput>>(null);
+  useDevAction('settings.focusKey', () => keyRef.current?.focus());
   const [message, setMessage] = useState<string | null>(null);
   const [messageTone, setMessageTone] = useState<'ok' | 'error'>('ok');
 
@@ -111,6 +114,7 @@ export function AiKeySection() {
         />
         <View style={styles.keyEntry}>
           <TextInput
+            ref={keyRef}
             value={draft}
             onChangeText={setDraft}
             placeholder={hasKey ? 'Paste a replacement key' : 'Paste API key'}

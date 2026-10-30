@@ -47,8 +47,8 @@ System font. SF Pro Rounded (`ui-rounded`) for figures only: `hero` 52, `statLar
 - `SheetFooter` — the pinned action bar on a sheet; rides above the keyboard.
 - `QuickLogBar` — the tab bar's bottom accessory: “Log a meal” with Speak and Photo on every tab except Log (which has them in its card); two icons when minimised.
 - `RecordingBar` — what Log's composer becomes while listening: ✕ cancel, a live waveform with elapsed time, ✓ finish. No labels.
-- Log's composer has three states: empty (inset field + equal Speak and Photo buttons), listening (`RecordingBar`), and with text (clear ⓧ and an add-by-voice mic inside the field; full-width Review, or Review with AI over a tonal Review as heard).
-- Source badges — a 22 pt rounded square before an item's name: ✦ AI estimate (accent), pencil edited, person My Foods. Never a text tag among the nutrients.
+- Log's composer has three states: empty (field + equal Speak and Photo buttons), listening (the words as plain text over `RecordingBar`), and with text (a 32 pt gray ✕ in the card's title row clears it — iOS's clear-field shape, far from every other control; below the item list, a 54 pt mic to add by voice beside a full-width Review, or Review with AI over a tonal Review as heard). While listening the words are never an editable field: a caret-tracking `TextInput` that grows under live text scrolls the page.
+- Source badges — a 22 pt rounded square right after an item's name, so every name starts on the same line: ✦ AI estimate (accent), pencil edited, person My Foods. Never a text tag among the nutrients.
 - Nutrient totals — macros (with color dots) and fiber / sugar / saturated fat / sodium share one type style; extra nutrients are a second row, not a footnote.
 - `PhotoScan` — the photo being estimated, with a sweep and named stages; errors offer Retry.
 - `ToastHost` — one short message above the tab bar, with an optional action (“Undo”). Mounted at the root.
@@ -61,6 +61,14 @@ Springs from `tokens.springs` for rings, bars, and segmented thumbs; all check `
 ## Sheets
 
 Review, Search, and the food editor are page sheets (`presentation: 'modal'`) with the native header (glass close, or Cancel/Save) and, for Search, the native search field. Memoise their `Stack.Screen` options. Confirming closes the sheet and shows a toast with Undo — no full-screen celebration. Don't use `formSheet` for a sheet with a pinned footer — react-native-screens resizes its first ScrollView to the whole sheet.
+
+## Keyboard
+
+`react-native-keyboard-controller` owns it (`KeyboardProvider` at the root). Every screen with a text field scrolls in `KeyboardAwareScrollView` — never `automaticallyAdjustKeyboardInsets` or `KeyboardAvoidingView`, which jump or mis-measure inside native stacks and sheets. `bottomOffset` 24; 64 where iOS adds a bar above the keyboard that isn't counted in its height (number pad Done, Passwords). Composers that change height while focused also set `disableScrollOnKeyboardHide`. `SheetFooter` rides the keyboard in a `KeyboardStickyView`. Search's native field is `placement: 'stacked'` so it sits under the title, clear of the footer.
+
+## Text size
+
+Check every screen at `accessibility-medium` (`xcrun simctl ui booted content_size accessibility-medium`, then relaunch). Hero numbers and segmented labels are one line and shrink to fit; units sit in a minimum-width column that widens rather than breaking “kcal”; a row of equal chips stacks vertically from `fontScale` 1.35; a number and its unit wrap as a pair. Portions read as people say them: “½ avocado”, “1½ cups”.
 
 ## Layout
 

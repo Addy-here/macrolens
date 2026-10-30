@@ -67,7 +67,7 @@ export function Segmented<T extends string | number>({
             }}
             style={styles.segment}
           >
-            <Text style={[styles.label, selected && styles.labelOn]} numberOfLines={1}>
+            <Text style={[styles.label, selected && styles.labelOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
               {option.label}
             </Text>
           </Pressable>

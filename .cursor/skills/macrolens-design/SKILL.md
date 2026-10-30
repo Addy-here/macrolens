@@ -27,6 +27,9 @@ A light food log in the system idiom. Every tab root has a native collapsing lar
 - Review-before-save is the only write path for anything, including voice, “Log again”, quick add, and edits.
 - Sheets with a pinned action use `presentation: 'modal'` and `SheetFooter`, not `formSheet`; memoise their `Stack.Screen` options.
 - Copy is strict: no hints, no explanations of the obvious, no AI-key nudges once a key is saved.
+- Screens with a text field scroll in `KeyboardAwareScrollView` (react-native-keyboard-controller); never `automaticallyAdjustKeyboardInsets`. Live transcripts render as `Text`, never an editable field.
+- Source badges follow the item's name. Portions read as fractions (“½ avocado”).
+- Check every touched screen at `accessibility-medium` text: one-line hero numbers, units that widen instead of breaking, chips that stack.
 
 ## Checking your work
 

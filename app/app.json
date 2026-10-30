@@ -10,7 +10,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.adwaitmahadar.macrolens",
-      "appleTeamId": "DNYJM6CGV5"
+      "appleTeamId": "DNYJM6CGV5",
+      "infoPlist": {
+        "EXDevMenuShowFloatingActionButton": false
+      }
     },
     "android": {
       "adaptiveIcon": {

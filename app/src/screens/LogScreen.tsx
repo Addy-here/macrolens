@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import type { SFSymbol } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
@@ -47,6 +48,8 @@ export function LogScreen() {
   const loggedToken = useReviewStore((s) => s.loggedToken);
   const entries = useFoodLogStore((s) => s.entries);
   const library = useParserLibrary();
+  // At accessibility text sizes the three shortcuts stack, as iOS does with side-by-side controls.
+  const largeText = useWindowDimensions().fontScale >= 1.35;
   const voice = useVoiceCapture();
   const scrollRef = useDevAutoScroll('log');
   const reduceMotion = useReducedMotion();
@@ -59,6 +62,7 @@ export function LogScreen() {
   const [example] = useState(() => EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)]);
   /** Text typed before the mic was tapped; speech is appended to it. */
   const base = useRef('');
+  const inputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
   const seenLog = useRef(loggedToken);
 
   useEffect(() => {
@@ -126,6 +130,13 @@ export function LogScreen() {
   useDevAction('log.review', () => void review(preferAI ? 'ai' : 'local'));
   useDevAction('log.reviewAsHeard', () => void review('local'));
   useDevAction('log.stop', () => voice.stop());
+  useDevAction('log.focus', () => inputRef.current?.focus());
+  // Development: show the photo estimate states without a camera or a key.
+  useDevAction('log.simulatePhoto', () => {
+    setPhotoError(null);
+    setPhoto({ uri: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=70&fm=jpg&fit=crop', base64: '', mimeType: 'image/jpeg' });
+  });
+  useDevAction('log.simulatePhotoError', () => setPhotoError('The AI request failed (500). Try again.'));
   useDevAction('log.simulateListening', () => {
     base.current = '';
     voice.simulate('two scrambled eggs, sourdough toast and a flat white');
@@ -240,19 +251,40 @@ export function LogScreen() {
   const error = voice.error?.message ?? message;
 
   return (
-    <ScrollView
-      ref={scrollRef}
+    <KeyboardAwareScrollView
+      ref={scrollRef as never}
+      bottomOffset={spacing.lg}
+      // Closing the keyboard (e.g. tapping Speak while typing) must not move the page.
+      disableScrollOnKeyboardHide
       style={styles.screen}
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
-      automaticallyAdjustKeyboardInsets
     >
       {target ? <TargetChip mealType={target.mealType} dateKey={target.dateKey} /> : null}
 
       <Card style={styles.describe}>
-        <Text style={styles.describeTitle}>{listening ? 'Listening…' : 'What did you eat?'}</Text>
+        <View style={styles.head}>
+          <Text style={styles.describeTitle}>{listening ? 'Listening…' : 'What did you eat?'}</Text>
+          {hasText && !voice.active && !photo ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear"
+              hitSlop={8}
+              onPress={() => {
+                void Haptics.selectionAsync();
+                setDraft('');
+                base.current = '';
+                setMessage(null);
+                voice.clearError();
+              }}
+              style={({ pressed }) => [styles.clear, pressed && styles.pressed]}
+            >
+              <Icon name="xmark" size={13} color={colors.textSecondary} weight="bold" />
+            </Pressable>
+          ) : null}
+        </View>
 
         {photo ? (
           <PhotoScan
@@ -264,48 +296,33 @@ export function LogScreen() {
               setPhotoError(null);
             }}
           />
+        ) : voice.active ? (
+          // Plain text while listening: an editable field would scroll the page to chase its caret as words arrive.
+          <Text style={[styles.input, styles.transcript, !draft && styles.transcriptEmpty]} accessibilityLiveRegion="polite">
+            {draft || example}
+          </Text>
         ) : (
-          <View style={[styles.field, listening && styles.fieldListening]}>
-            <TextInput
-              value={draft}
-              onChangeText={(text) => {
-                setDraft(text);
-                setMessage(null);
-                voice.clearError();
-              }}
-              editable={!voice.active}
-              multiline
-              placeholder={example}
-              placeholderTextColor={colors.textTertiary}
-              keyboardAppearance="light"
-              returnKeyType="done"
-              submitBehavior="blurAndSubmit"
-              onSubmitEditing={() => {
-                if (hasText) void review(preferAI ? 'ai' : 'local');
-              }}
-              accessibilityLabel="What you ate"
-              style={styles.input}
-            />
-            {hasText && !voice.active ? (
-              <View style={styles.fieldTools}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Clear"
-                  hitSlop={10}
-                  onPress={() => {
-                    void Haptics.selectionAsync();
-                    setDraft('');
-                    base.current = '';
-                    setMessage(null);
-                    voice.clearError();
-                  }}
-                >
-                  <Icon name="xmark.circle.fill" size={20} color={colors.textTertiary} weight="regular" />
-                </Pressable>
-                <IconButton icon="mic.fill" label="Add by voice" onPress={() => void startListening()} />
-              </View>
-            ) : null}
-          </View>
+          <TextInput
+            ref={inputRef}
+            value={draft}
+            onChangeText={(text) => {
+              setDraft(text);
+              setMessage(null);
+              voice.clearError();
+            }}
+            multiline
+            scrollEnabled={false}
+            placeholder={example}
+            placeholderTextColor={colors.textTertiary}
+            keyboardAppearance="light"
+            returnKeyType="done"
+            submitBehavior="blurAndSubmit"
+            onSubmitEditing={() => {
+              if (hasText) void review(preferAI ? 'ai' : 'local');
+            }}
+            accessibilityLabel="What you ate"
+            style={styles.input}
+          />
         )}
 
         {!photo && parsed.items.length > 0 ? (
@@ -341,20 +358,20 @@ export function LogScreen() {
           />
         ) : hasText ? (
           <View style={styles.actions}>
+            <View style={styles.actionRow}>
+              <IconButton icon="mic.fill" label="Add by voice" onPress={() => void startListening()} />
+              <GlassButton
+                label={busy === 'ai' ? 'Estimating…' : preferAI ? 'Review with AI' : 'Review'}
+                icon={busy ? undefined : preferAI ? 'sparkles' : 'arrow.right'}
+                variant="primary"
+                disabled={Boolean(busy)}
+                onPress={() => void review(preferAI ? 'ai' : 'local')}
+                style={styles.flex}
+              />
+            </View>
             {preferAI ? (
-              <>
-                <GlassButton
-                  label={busy === 'ai' ? 'Estimating…' : 'Review with AI'}
-                  icon={busy ? undefined : 'sparkles'}
-                  variant="primary"
-                  disabled={Boolean(busy)}
-                  onPress={() => void review('ai')}
-                />
-                <GlassButton label="Review as heard" variant="tonal" disabled={Boolean(busy)} onPress={() => void review('local')} />
-              </>
-            ) : (
-              <GlassButton label="Review" icon="arrow.right" variant="primary" disabled={Boolean(busy)} onPress={() => void review('local')} />
-            )}
+              <GlassButton label="Review as heard" variant="tonal" disabled={Boolean(busy)} onPress={() => void review('local')} />
+            ) : null}
           </View>
         ) : (
           <View style={styles.capture}>
@@ -384,7 +401,7 @@ export function LogScreen() {
         ) : null}
       </Card>
 
-      <View style={styles.methods}>
+      <View style={[styles.methods, largeText && styles.methodsStacked]}>
         <Method icon="magnifyingglass" title="Search" onPress={() => router.push('/search')} />
         <Method icon="photo.on.rectangle" title="Library" onPress={() => void takePhoto('library')} />
         <Method icon="plusminus" title="Quick add" onPress={quickAdd} />
@@ -421,7 +438,7 @@ export function LogScreen() {
           </ScrollView>
         </>
       ) : null}
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 
@@ -458,7 +475,7 @@ function IconButton({ icon, label, onPress }: { icon: SFSymbol; label: string; o
       }}
       style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
     >
-      <Icon name={icon} size={15} color={colors.accent} />
+      <Icon name={icon} size={20} color={colors.accent} />
     </Pressable>
   );
 }
@@ -512,38 +529,42 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
   },
-  field: {
+  head: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    paddingLeft: spacing.md - 2,
-    paddingRight: spacing.sm + 2,
-    paddingVertical: spacing.sm + 4,
-    borderRadius: radius.md + 2,
-    borderCurve: 'continuous',
-    backgroundColor: colors.surfaceRaised,
-  },
-  fieldListening: {
-    backgroundColor: colors.accentSoft,
-  },
-  fieldTools: {
-    alignSelf: 'stretch',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingTop: 2,
+    justifyContent: 'space-between',
+    minHeight: 32,
+  },
+  clear: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.fill,
+  },
+  transcript: {
+    color: colors.textPrimary,
+  },
+  transcriptEmpty: {
+    color: colors.textTertiary,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + 2,
   },
   iconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.accentSoft,
   },
   describe: {
-    padding: spacing.lg - 4,
-    gap: spacing.sm + 2,
+    padding: spacing.lg - 2,
+    gap: spacing.md,
   },
   describeTitle: {
     ...typography.title,
@@ -551,11 +572,10 @@ const styles = StyleSheet.create({
   },
   input: {
     ...typography.body,
-    flex: 1,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 20,
+    lineHeight: 27,
     color: colors.textPrimary,
-    minHeight: 48,
+    minHeight: 81,
     padding: 0,
     textAlignVertical: 'top',
   },
@@ -636,6 +656,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm + 2,
     marginTop: spacing.sm + 4,
+  },
+  methodsStacked: {
+    flexDirection: 'column',
   },
   method: {
     flex: 1,

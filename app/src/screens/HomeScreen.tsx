@@ -169,7 +169,7 @@ function CalorieCard({ eaten, target }: { eaten: number; target: number }) {
           eaten,
         )} eaten of ${target}.`}
       >
-        <Text style={styles.heroNumber}>{Math.abs(left).toLocaleString()}</Text>
+        <Text style={styles.heroNumber} numberOfLines={1} adjustsFontSizeToFit>{Math.abs(left).toLocaleString()}</Text>
         <Text style={styles.heroCaption}>{over ? 'Calories over' : 'Calories left'}</Text>
         <View style={styles.heroStats}>
           <HeroStat label="Eaten" value={Math.round(eaten)} />

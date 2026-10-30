@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { router, Stack } from 'expo-router';
@@ -183,13 +184,13 @@ export function FoodReviewScreen() {
   return (
     <View style={styles.screen}>
       <Stack.Screen options={headerOptions} />
-      <ScrollView
-        ref={scrollRef}
+      <KeyboardAwareScrollView
+        bottomOffset={24}
+        ref={scrollRef as never}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
-        automaticallyAdjustKeyboardInsets
       >
         {pending.photoUri ? (
           <Image source={{ uri: resolvePhotoUri(pending.photoUri) }} style={styles.photo} contentFit="cover" transition={200} />
@@ -216,7 +217,7 @@ export function FoodReviewScreen() {
 
         <Card style={styles.summary}>
           <View accessible accessibilityLabel={`Total ${Math.round(totals.calories)} calories`} style={styles.summaryTop}>
-            <Text style={styles.summaryNumber}>{Math.round(totals.calories).toLocaleString()}</Text>
+            <Text style={styles.summaryNumber} numberOfLines={1} adjustsFontSizeToFit>{Math.round(totals.calories).toLocaleString()}</Text>
             <Text style={styles.summaryUnit}>kcal</Text>
           </View>
           <View style={styles.nutrientRow}>
@@ -272,7 +273,7 @@ export function FoodReviewScreen() {
             <Text style={styles.deleteMealText}>Delete Meal</Text>
           </Pressable>
         ) : null}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <SheetFooter>
         <GlassButton
@@ -333,10 +334,12 @@ function ItemCard({ food }: { food: FoodItem }) {
         style={({ pressed }) => [styles.itemTap, pressed && styles.pressed]}
       >
         <View style={styles.itemHeader}>
-          {badge ? <SourceBadge kind={badge} /> : null}
-          <Text style={styles.itemName} numberOfLines={2}>
-            {food.name}
-          </Text>
+          <View style={styles.itemTitle}>
+            <Text style={styles.itemNameText} numberOfLines={2}>
+              {food.name}
+            </Text>
+            {badge ? <SourceBadge kind={badge} /> : null}
+          </View>
           <Text style={styles.itemKcal}>{Math.round(food.macros.calories)} kcal</Text>
           <Icon name="chevron.right" size={12} color={colors.textTertiary} weight="semibold" />
         </View>
@@ -360,7 +363,7 @@ function ItemCard({ food }: { food: FoodItem }) {
           <Stepper
             label={`${food.name}, ${portionLabel(food)}`}
             value={Math.round((food.portionGrams / food.serving.grams) * 4) / 4}
-            unit={Math.abs(food.portionGrams - food.serving.grams) < 0.5 ? food.serving.label : food.serving.plural}
+            unit={food.portionGrams <= food.serving.grams + 0.5 ? food.serving.label : food.serving.plural}
             step={food.serving.grams >= 100 ? 0.5 : 1}
             min={0.25}
             onChange={(count) => update(scaleItem(food, count * food.serving!.grams))}
@@ -579,6 +582,17 @@ const styles = StyleSheet.create({
     ...typography.headline,
     color: colors.textPrimary,
     flex: 1,
+  },
+  itemTitle: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  itemNameText: {
+    ...typography.headline,
+    color: colors.textPrimary,
+    flexShrink: 1,
   },
   itemKcal: {
     ...typography.statSmall,

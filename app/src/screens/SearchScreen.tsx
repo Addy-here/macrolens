@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import type { SearchBarCommands } from 'react-native-screens';
 import * as Haptics from 'expo-haptics';
@@ -130,6 +131,8 @@ export function SearchScreen() {
       headerSearchBarOptions: {
         ref: searchBar,
         placeholder: 'Foods, drinks, or calories',
+        // At the top under the title: iOS 26 otherwise docks it at the bottom, over the Done/Review bar.
+        placement: 'stacked' as const,
         autoFocus: !q,
         hideWhenScrolling: false,
         autoCapitalize: 'none' as const,
@@ -149,12 +152,12 @@ export function SearchScreen() {
     <View style={styles.screen}>
       <Stack.Screen options={headerOptions} />
 
-      <ScrollView
+      <KeyboardAwareScrollView
+        bottomOffset={24}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        automaticallyAdjustKeyboardInsets
       >
         {showQuick ? (
           <Card padded={false}>
@@ -191,7 +194,7 @@ export function SearchScreen() {
             <Section title="Staples" rows={staples} added={added} onAdd={add} />
           </>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {!link && (adding ? addedCount : pendingCount) > 0 ? (
         <SheetFooter>

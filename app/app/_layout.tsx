@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { ToastHost } from '../src/components/ui/ToastHost';
 import { DevBridge } from '../src/dev/DevBridge';
 import { colors } from '../src/theme';
@@ -26,6 +27,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+      <KeyboardProvider>
       <SafeAreaProvider>
         <Stack
           screenOptions={{
@@ -74,6 +76,7 @@ export default function RootLayout() {
         {__DEV__ ? <DevBridge /> : null}
         <StatusBar style="dark" />
       </SafeAreaProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }
