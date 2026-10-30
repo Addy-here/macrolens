@@ -11,13 +11,18 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.adwaitmahadar.macrolens",
       "appleTeamId": "DNYJM6CGV5",
+      "icon": {
+        "light": "./assets/icon.png",
+        "dark": "./assets/icon-dark.png",
+        "tinted": "./assets/icon-tinted.png"
+      },
       "infoPlist": {
         "EXDevMenuShowFloatingActionButton": false
       }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FF5C1A",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -45,6 +50,14 @@
         {
           "microphonePermission": "Macrolens listens while you say what you ate, so it can log it for you.",
           "speechRecognitionPermission": "Macrolens turns what you say into foods on this iPhone. Your voice is not stored."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 120,
+          "backgroundColor": "#FF5C1A"
         }
       ]
     ]

@@ -26,6 +26,16 @@ Tokens in `app/src/theme/colors.ts`. Do not add colors in a screen.
 - `tile.*` — iOS system colors for Settings icon tiles only.
 - Danger is a failed action (permission, rejected key, delete), never a meal that passed its target.
 
+## Brand mark
+
+A fried egg whose yolk is a lens: food, and the camera that logs it. One white shape and one flat accent yolk with a glint, no gradients, so it reads at 16 px.
+
+- Source: `app/assets/brand/build.py` holds the geometry and writes every asset as SVG (`python3 build.py`, then rasterize each at 1024).
+- iOS icon: orange tile (`icon.png`, no alpha), plus `icon-dark.png` and `icon-tinted.png` on transparent for the dark and tinted Home Screen styles (`ios.icon` in `app.json`).
+- Splash: the egg on accent `#FF5C1A` (`expo-splash-screen`).
+- Android: egg foreground inside the 66% safe circle on accent; a monochrome version with the yolk set off by a gap ring.
+- In the app: `AppMark` (`tile` for the icon tile). Used once, in the Settings footer with the version. Not a decoration — no mark on content screens.
+
 ## Type
 
 System font. SF Pro Rounded (`ui-rounded`) for figures only: `hero` 52, `statLarge` 30, `statMedium` 20, `statSmall` 15 (tabular, for columns and axes). Text styles follow iOS names: `title`, `headline`, `body`, `callout`, `subheadline`, `footnote`, `caption`, `label`. Sentence case everywhere; no all-caps eyebrows.
@@ -44,6 +54,7 @@ System font. SF Pro Rounded (`ui-rounded`) for figures only: `hero` 52, `statLar
 - `ListRow` / `GroupLabel` — Settings idiom: icon tile, title, subtitle, value / control / checkmark / chevron.
 - `SectionHeader` — 20pt title with a trailing note.
 - `Icon` — SF Symbol wrapper.
+- `AppMark` — the brand mark from the app icon, drawn in SVG; `tile` puts it on the orange icon tile.
 - `SheetFooter` — the pinned action bar on a sheet; rides above the keyboard.
 - `QuickLogBar` — the tab bar's bottom accessory: “Log a meal” with Speak and Photo on every tab except Log (which has them in its card); two icons when minimised.
 - `RecordingBar` — what Log's composer becomes while listening: ✕ cancel, a live waveform with elapsed time, ✓ finish. No labels.

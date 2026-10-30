@@ -3,7 +3,9 @@ import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import type { SFSymbol } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
+import Constants from 'expo-constants';
 import { AiKeySection } from '../components/AiKeySection';
+import { AppMark } from '../components/ui/AppMark';
 import { GlassButton } from '../components/glass';
 import { Card } from '../components/ui/Card';
 import { Icon } from '../components/ui/Icon';
@@ -303,6 +305,10 @@ export function SettingsScreen() {
         </>
       ) : null}
 
+      <View style={styles.about} accessible accessibilityLabel={`Macrolens version ${Constants.expoConfig?.version ?? ''}`}>
+        <AppMark size={44} tile />
+        <Text style={styles.footer}>Macrolens {Constants.expoConfig?.version}</Text>
+      </View>
     </KeyboardAwareScrollView>
   );
 }
@@ -444,10 +450,14 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     lineHeight: 18,
   },
+  about: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xl,
+  },
   footer: {
     ...typography.caption,
     color: colors.textTertiary,
     textAlign: 'center',
-    marginTop: spacing.lg,
   },
 });
