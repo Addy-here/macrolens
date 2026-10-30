@@ -30,8 +30,8 @@ Tokens in `app/src/theme/colors.ts`. Do not add colors in a screen.
 
 A fried egg whose yolk is a lens: food, and the camera that logs it. One white shape and one flat accent yolk with a glint, no gradients, so it reads at 16 px.
 
-- Source: `app/assets/brand/build.py` holds the geometry and writes every asset as SVG (`python3 build.py`, then rasterize each at 1024).
-- iOS icon: orange tile (`icon.png`, no alpha), plus `icon-dark.png` and `icon-tinted.png` on transparent for the dark and tinted Home Screen styles (`ios.icon` in `app.json`).
+- Source: `app/assets/brand/build.py` holds the geometry, writes every flat asset as SVG (rasterize each at 1024), and writes the layered `app/assets/AppIcon.icon`.
+- iOS icon: `AppIcon.icon`, an Icon Composer bundle (`ios.icon` in `app.json`). Accent fill (system dark in Dark); the egg white is a glass layer with a neutral shadow; the yolk and glint are a group in front with a chromatic shadow, so the yolk floats. iOS derives Dark, Clear, and Tinted from these layers. Open it in Icon Composer (Xcode ▸ Open Developer Tool) to adjust; check with `ictool AppIcon.icon --export-image …`. `icon.png` is the flat fallback for web and Expo Go.
 - Splash: the egg on accent `#FF5C1A` (`expo-splash-screen`).
 - Android: egg foreground inside the 66% safe circle on accent; a monochrome version with the yolk set off by a gap ring.
 - In the app: `AppMark` (`tile` for the icon tile). Used once, in the Settings footer with the version. Not a decoration — no mark on content screens.

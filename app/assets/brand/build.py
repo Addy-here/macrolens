@@ -61,9 +61,7 @@ def monochrome(scale):
 
 
 ASSETS = {
-    "icon": f'<rect width="1024" height="1024" fill="{ORANGE}"/>' + egg(),
-    "icon-dark": egg(),  # transparent: iOS draws its dark backdrop
-    "icon-tinted": egg(yolk="#7A7A7A"),  # grayscale: iOS tints by luminance
+    "icon": f'<rect width="1024" height="1024" fill="{ORANGE}"/>' + egg(),  # flat fallback (web, Expo Go)
     "splash-icon": egg(scale=1.3),  # expo-splash-screen paints the orange
     "android-icon-foreground": egg(scale=0.8),  # inside the 66% safe circle
     "android-icon-background": f'<rect width="1024" height="1024" fill="{ORANGE}"/>',
@@ -72,8 +70,55 @@ ASSETS = {
     "mark": egg(),
 }
 
+
+def write_icon_bundle(path="../AppIcon.icon"):
+    """Liquid Glass icon for Icon Composer / Xcode: orange fill, the egg white
+    as one glass layer, the yolk and its glint as a group floating in front."""
+    import os
+    x, y, r = YOLK
+    os.makedirs(f"{path}/Assets", exist_ok=True)
+    layers = {
+        "white.svg": f'<path d="{WHITE}" fill="#FFFFFF"/>',
+        "yolk.svg": f'<circle cx="{x}" cy="{y}" r="{r}" fill="{ORANGE}"/>',
+        "glint.svg": f'<path d="{GLINT}" fill="none" stroke="#FFFFFF" stroke-width="30" stroke-linecap="round"/>',
+    }
+    for name, body in layers.items():
+        with open(f"{path}/Assets/{name}", "w") as f:
+            f.write(svg(body))
+    at = {"scale": 1, "translation-in-points": [0, 0]}
+    icon = {
+        "fill-specializations": [
+            {"value": {"solid": "srgb:1.00000,0.36078,0.10196,1.00000"}},
+            {"appearance": "dark", "value": "system-dark"},
+        ],
+        "groups": [
+            {
+                "name": "Yolk",
+                "layers": [
+                    {"name": "glint", "image-name": "glint.svg", "glass": False, "position": at},
+                    {"name": "yolk", "image-name": "yolk.svg", "glass": True, "position": at},
+                ],
+                "shadow": {"kind": "layer-color", "opacity": 0.5},
+                "specular": True,
+                "translucency": {"enabled": False, "value": 0.5},
+            },
+            {
+                "name": "White",
+                "layers": [{"name": "white", "image-name": "white.svg", "glass": True, "position": at}],
+                "shadow": {"kind": "neutral", "opacity": 0.5},
+                "specular": True,
+                "translucency": {"enabled": True, "value": 0.2},
+            },
+        ],
+        "supported-platforms": {"squares": ["iOS"]},
+    }
+    with open(f"{path}/icon.json", "w") as f:
+        json.dump(icon, f, indent=2)
+
+
 if __name__ == "__main__":
     for name, body in ASSETS.items():
         with open(f"{name}.svg", "w") as f:
             f.write(svg(body))
+    write_icon_bundle()
     print(json.dumps({"white": WHITE, "glint": GLINT, "yolk": YOLK}))

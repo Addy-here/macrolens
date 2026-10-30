@@ -11,11 +11,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.adwaitmahadar.macrolens",
       "appleTeamId": "DNYJM6CGV5",
-      "icon": {
-        "light": "./assets/icon.png",
-        "dark": "./assets/icon-dark.png",
-        "tinted": "./assets/icon-tinted.png"
-      },
+      "icon": "./assets/AppIcon.icon",
       "infoPlist": {
         "EXDevMenuShowFloatingActionButton": false
       }
