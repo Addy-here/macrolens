@@ -1,1 +1,1 @@
-export { CameraScreen as default } from '../../../src/screens/CameraScreen';
+export { LogScreen as default } from '../../../src/screens/LogScreen';

@@ -256,7 +256,6 @@ export function TrendChart({
           <View style={[styles.legendDot, { backgroundColor: colors.fillStrong }]} />
           <Text style={styles.legendText}>Scale</Text>
         </View>
-        <Text style={[styles.legendText, styles.legendHint]}>Drag to read a day</Text>
       </View>
     </View>
   );
@@ -326,9 +325,5 @@ const styles = StyleSheet.create({
   legendText: {
     ...typography.caption,
     color: colors.textSecondary,
-  },
-  legendHint: {
-    marginLeft: 'auto',
-    color: colors.textTertiary,
   },
 });

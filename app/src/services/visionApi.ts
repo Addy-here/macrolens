@@ -4,12 +4,28 @@ import { readSelectedAiKey, type AiProvider } from './aiKey';
 
 const PROMPT = `You estimate food in a photo for a nutrition log.
 Reply with JSON only, no markdown, in this shape:
-{"items":[{"name":"string","portionGrams":number,"calories":number,"proteinG":number,"carbsG":number,"fatG":number,"fiberG":number,"sugarG":number,"sodiumMg":number}]}
+{"items":[{"name":"string","portionGrams":number,"calories":number,"proteinG":number,"carbsG":number,"fatG":number,"fiberG":number,"sugarG":number,"sodiumMg":number,"saturatedFatG":number}]}
 Rules:
 - Include only foods and drinks you can actually see.
 - portionGrams is the edible portion, not the whole package unless the whole package is the serving.
 - Macros are for that portion, not per 100g.
 - If the photo is not food, return {"items":[]}.`;
+
+const TEXT_PROMPT = `You turn a spoken or typed description of a meal into nutrition log items.
+Reply with JSON only, no markdown, in this shape:
+{"items":[{"name":"string","portionGrams":number,"calories":number,"proteinG":number,"carbsG":number,"fatG":number,"fiberG":number,"sugarG":number,"sodiumMg":number,"saturatedFatG":number}]}
+Rules:
+- One item per dish, food, or drink actually eaten. A named dish stays one item ("Panda Express orange chicken"), not its ingredients.
+- Use the person's words for the name, in sentence case, including a restaurant or brand if they said one, and use that place's published nutrition when you know it.
+- Speech-to-text may mis-hear words; read through obvious mistakes.
+- Respect stated amounts and units. If none is stated, assume one typical serving.
+- portionGrams is the edible portion; for drinks use millilitres as grams.
+- Macros are for that portion, not per 100g.
+- Ignore words that are not food. If nothing is food, return {"items":[]}.
+Description:
+`;
+
+type EstimateInput = { kind: 'image'; base64: string; mimeType: string } | { kind: 'text'; text: string };
 
 export class VisionError extends Error {
   constructor(message: string) {
@@ -27,15 +43,25 @@ export async function analyzeFoodPhoto(input: {
     throw new VisionError('Add your API key in Settings before analyzing a photo.');
   }
 
-  const raw = await requestEstimate(selected.provider, selected.model, selected.apiKey, input);
+  const raw = await requestEstimate(selected.provider, selected.model, selected.apiKey, { kind: 'image', ...input });
   return parseFoodItems(raw);
+}
+
+/** A described meal, estimated by the user's chosen provider. Used for foods the on-device reference doesn't know. */
+export async function estimateFromText(text: string): Promise<FoodItem[]> {
+  const selected = await readSelectedAiKey();
+  if (!selected) {
+    throw new VisionError('Add your API key in Settings to estimate foods Macrolens doesn’t know yet.');
+  }
+  const raw = await requestEstimate(selected.provider, selected.model, selected.apiKey, { kind: 'text', text });
+  return parseFoodItems(raw, 'text-ai');
 }
 
 async function requestEstimate(
   provider: AiProvider,
   model: string,
   apiKey: string,
-  input: { base64: string; mimeType: string },
+  input: EstimateInput,
 ) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 45000);
@@ -88,7 +114,8 @@ function headers(provider: AiProvider, apiKey: string): Record<string, string> {
   return { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' };
 }
 
-function body(provider: AiProvider, model: string, input: { base64: string; mimeType: string }) {
+function body(provider: AiProvider, model: string, input: EstimateInput) {
+  if (input.kind === 'text') return textBody(provider, model, TEXT_PROMPT + input.text);
   if (provider === 'openai') {
     return {
       model,
@@ -132,6 +159,16 @@ function body(provider: AiProvider, model: string, input: { base64: string; mime
   };
 }
 
+function textBody(provider: AiProvider, model: string, prompt: string) {
+  if (provider === 'openai') {
+    return { model, response_format: { type: 'json_object' }, messages: [{ role: 'user', content: prompt }] };
+  }
+  if (provider === 'anthropic') {
+    return { model, max_tokens: 1500, messages: [{ role: 'user', content: prompt }] };
+  }
+  return { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } };
+}
+
 function responseText(provider: AiProvider, data: unknown) {
   if (provider === 'openai') {
     const content = (data as { choices?: { message?: { content?: string } }[] })?.choices?.[0]?.message?.content;
@@ -173,7 +210,7 @@ async function failureMessage(response: Response) {
     : `The AI request failed (${response.status}).`;
 }
 
-export function parseFoodItems(raw: string): FoodItem[] {
+export function parseFoodItems(raw: string, source: FoodItem['source'] = 'vision-ai'): FoodItem[] {
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
   if (start < 0 || end <= start) {
@@ -194,13 +231,15 @@ export function parseFoodItems(raw: string): FoodItem[] {
       : null;
 
   if (!Array.isArray(items) || items.length === 0) {
-    throw new VisionError('No food was recognized. Try a closer photo of the meal.');
+    throw new VisionError(
+      source === 'vision-ai' ? 'No food was recognized. Try a closer photo of the meal.' : 'No food was recognized in that description.',
+    );
   }
 
-  return items.slice(0, 12).map(toFoodItem);
+  return items.slice(0, 12).map((item) => toFoodItem(item, source));
 }
 
-function toFoodItem(value: unknown): FoodItem {
+function toFoodItem(value: unknown, source: FoodItem['source']): FoodItem {
   const item = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
   const name = typeof item.name === 'string' && item.name.trim() ? item.name.trim() : 'Food';
   const portionGrams = Math.max(1, Math.round(num(item.portionGrams, 100)));
@@ -210,7 +249,7 @@ function toFoodItem(value: unknown): FoodItem {
     name,
     portionGrams,
     userAdjusted: false,
-    source: 'vision-ai',
+    source,
     macros: {
       calories: Math.max(0, Math.round(num(item.calories))),
       proteinG: Math.max(0, round1(num(item.proteinG))),
@@ -226,9 +265,11 @@ function optionalMicros(item: Record<string, unknown>): Micros | undefined {
   const fiber = numOrNull(item.fiberG);
   const sugar = numOrNull(item.sugarG);
   const sodium = numOrNull(item.sodiumMg);
+  const saturated = numOrNull(item.saturatedFatG);
   if (fiber !== null) micros.fiberG = Math.max(0, round1(fiber));
   if (sugar !== null) micros.sugarG = Math.max(0, round1(sugar));
   if (sodium !== null) micros.sodiumMg = Math.max(0, Math.round(sodium));
+  if (saturated !== null) micros.saturatedFatG = Math.max(0, round1(saturated));
   return Object.keys(micros).length > 0 ? micros : undefined;
 }
 

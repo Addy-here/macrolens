@@ -459,3 +459,105 @@ not clear glass (clear glass on a flat page renders as nearly invisible).
 works). A dark theme (deferred — the light log was a deliberate choice
 the day before; dark mode should be a proper second set of tokens, not a
 flip).
+
+---
+
+## 2026-10-29 — Describe-first logging: voice and text, with an on-device food reference
+
+**Decision:** Logging is no longer built around the photo. The Log tab is a
+hub led by “What did you eat?” — tap the mic and talk, or type — with
+Photo, Search, and Quick add one tap away and “Log again” below. Speech
+uses Apple's recognizer through `expo-speech-recognition` (on-device when
+the model is present, Apple's servers otherwise). A local food reference
+(`src/data/foods.ts`, ~170 foods with natural units) and parser
+(`src/utils/describe.ts`) turn the words into items live, as they're
+spoken, without a key or a network; only unmatched words go to the user's
+AI provider (`estimateFromText`, text-only, so all three providers work).
+Every path still ends on the review sheet.
+
+**This required leaving Expo Go** (user chose it): the app is now a
+development build (`npx expo run:ios`, bundle id `com.adwaitmahadar.macrolens`,
+`ios/` generated and git-ignored). CocoaPods is required on the Mac.
+
+**Also in this pass:**
+- Logged meals can be edited (tap) and deleted with Undo (long-press,
+  toast). There was no way to change a meal before.
+- A meal's “+” on Today logs into that meal and day; the Today header has
+  a mic that opens Log listening.
+- Review: steppers count in natural units (“2 eggs”, “1.5 cups”), a day
+  picker, “Add a missed item” (search), unmatched items must be matched or
+  removed, repeat adds merge, edit mode with Delete.
+- Search sheet with recents, staples, and “Quick add 350 kcal” from a number.
+- Meal photos are copied into Documents/meal-photos when logged (the
+  picker's cache can be purged) and resolved against the current container
+  path when shown.
+- Review and Search are page sheets (`presentation: 'modal'`), not
+  `formSheet`: react-native-screens resizes a formSheet's first ScrollView
+  to the whole sheet and can't hold a pinned footer. `SheetFooter` keeps
+  the action above the keyboard.
+- Tests: jest-expo, 23 tests over the parser, food data sanity, the
+  logging flow (AI merge, fallbacks, meal/day), and the review store.
+
+**Alternatives considered:** Staying in Expo Go and sending recorded audio
+to Gemini/OpenAI (rejected by the user: no live transcript, nothing for
+Anthropic or no-key users). Sending every description to the AI (rejected:
+needs a key, costs money, slower; the review sheet already catches
+mistakes, so a local first pass is the better default).
+
+---
+
+## 2026-10-30 — Smarter describe logging, My Foods, nutrients, backups, and a quick-log bar
+
+**Decision:**
+- **AI routing.** The instant on-device match stays the live preview. The
+  parser now reports `confident: false` when words go unmatched or two foods
+  run together with nothing between them ("orange chicken" as two foods).
+  With a key saved, a shaky match makes the primary action "Review with
+  AI", which sends the **whole** description to the provider and uses its
+  answer; "Use as heard" keeps the instant match. The review sheet offers
+  "Ask AI" afterwards, and shows why if the AI couldn't be used. Unmatched
+  words alone are no longer sent piecemeal — that left the instant
+  mis-matches ("Orange", "Chicken") in place.
+- **My Foods** (`useFoodLibraryStore`, on device): foods the person
+  created, nutrition they corrected ("Save to My Foods" in the editor, on
+  by default, skipped when nothing changed), and AI estimates they logged
+  (learned, never overwriting their own). Linked phrases: resolving an
+  unmatched word with "Find it" maps that phrase to the chosen food. The
+  parser and search consult My Foods and links before the built-in list.
+- **Reference data:** fiber, sugar, sodium, saturated fat for every food,
+  and ~60 more foods (Indian staples, Chinese-American and chain dishes,
+  breakfast, drinks), plus common speech misspellings. ~230 foods total.
+  Today shows a Nutrients card against guide amounts scaled to the target.
+- **Backups:** Export writes one versioned JSON file (meals, weigh-ins,
+  goals, plan, My Foods, links, meal photos as base64; never the API key)
+  and opens the Share sheet. Import validates, summarises, and replaces
+  after confirmation (`expo-document-picker`, a new native module — the
+  dev build must be rebuilt).
+- **Capture:** Log's Speak and Photo are equal one-tap buttons; Photo
+  opens the camera and the estimate happens inside the card (the separate
+  photo page is gone). A **quick-log bar** — iOS 26's tab-bar
+  `BottomAccessory` — puts Speak and Photo on every tab and collapses to two
+  icons when the tab bar minimises. Requests reach Log through a one-shot
+  `useLogIntentStore`, not route params (navigating to an open tab doesn't
+  reliably replace params).
+- **Sheets** (Review, Search, Food editor) use the native header (glass
+  close / Cancel / Save) and Search uses the native search field. Their
+  `Stack.Screen` options are memoised: inline options re-render the screen
+  in a loop ("Maximum update depth exceeded").
+- **Feedback:** confirming a meal closes the sheet and shows a toast
+  ("Snack · 247 kcal · Undo") instead of a full-screen check.
+- **Meals:** the clock calls 22:00–04:00 and 15:00–17:00 a snack. Review
+  nudges ("It's 9:40 PM. Log as Dinner") only when the meal came from the
+  clock or Today's "+", never when the person said it.
+- **Copy:** explanatory hints removed throughout.
+
+**Why:** The user's review of the first voice build: a Panda Express order
+was mis-split and the AI didn't fix it; photo was two steps while voice was
+one; too many AI-sounding labels; wanted their own foods and edits to win,
+more nutrients, editable nutrition, and a way to keep data across reinstalls
+until there's a backend.
+
+**Alternatives considered:** Always sending descriptions to the AI when a
+key exists (rejected: "an apple and a banana" should stay instant and free).
+iCloud sync (rejected for now: needs a paid developer account's iCloud
+entitlement; the backup file covers reinstalls and new phones).

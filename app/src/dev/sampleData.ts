@@ -4,7 +4,8 @@ import { useReviewStore } from '../store/useReviewStore';
 import { useUserStore } from '../store/useUserStore';
 import { calculateInitialPlan } from '../utils/planCalculator';
 import { createId } from '../utils/id';
-import { sumMacros } from '../utils/macros';
+import { parseDescription } from '../utils/describe';
+import { sumMacros, sumMicros } from '../utils/macros';
 import type { FoodItem, FoodLogEntry, UserProfile, WeightEntry } from '../types';
 
 /**
@@ -14,71 +15,43 @@ import type { FoodItem, FoodLogEntry, UserProfile, WeightEntry } from '../types'
 
 const photo = (id: string) => `https://images.unsplash.com/${id}?w=800&q=70&fm=jpg&fit=crop`;
 
-function item(name: string, grams: number, calories: number, p: number, c: number, f: number): FoodItem {
-  return {
-    id: createId(),
-    name,
-    portionGrams: grams,
-    macros: { calories, proteinG: p, carbsG: c, fatG: f },
-    userAdjusted: false,
-    source: 'vision-ai',
-  };
+/** Sample meals are written the way people say them and parsed, so they carry full nutrition. */
+function described(text: string): FoodItem[] {
+  return parseDescription(text).items.filter((food) => !food.unresolved);
 }
 
 const MEALS = {
   avocadoToast: () => ({
     photo: photo('photo-1525351484163-7529414344d8'),
-    items: [
-      item('Sourdough toast', 60, 160, 6, 30, 2),
-      item('Avocado', 70, 112, 1.4, 6, 10.5),
-      item('Fried egg', 50, 90, 6.3, 0.4, 7),
-    ],
+    items: described('a slice of sourdough toast, half an avocado and a fried egg'),
   }),
   pancakes: () => ({
     photo: photo('photo-1567620905732-2d1ec7ab7445'),
-    items: [item('Pancakes', 180, 410, 10, 62, 12), item('Maple syrup', 30, 78, 0, 20, 0)],
+    items: described('three pancakes with 2 tbsp maple syrup'),
   }),
   eggPlate: () => ({
     photo: photo('photo-1490645935967-10de6ba17061'),
-    items: [
-      item('Boiled eggs', 100, 155, 13, 1.1, 11),
-      item('Sautéed spinach', 80, 40, 3, 3, 2.5),
-      item('Avocado', 50, 80, 1, 4.3, 7.5),
-    ],
+    items: described('two boiled eggs, a cup of spinach and half an avocado'),
   }),
   pokeBowl: () => ({
     photo: photo('photo-1546069901-ba9599a7e63c'),
-    items: [
-      item('Salmon', 120, 250, 25, 0, 16),
-      item('Sushi rice', 180, 234, 4.3, 52, 0.5),
-      item('Edamame', 50, 61, 5.5, 4.5, 2.6),
-      item('Cucumber & cabbage', 80, 22, 1, 5, 0.1),
-    ],
+    items: described('a poke bowl'),
   }),
   chickpeaBowl: () => ({
     photo: photo('photo-1512621776951-a57141f2eefd'),
-    items: [
-      item('Chickpeas', 120, 197, 10.4, 33, 3.1),
-      item('Avocado', 60, 96, 1.2, 5.1, 9),
-      item('Cherry tomatoes', 80, 14, 0.7, 3.1, 0.2),
-      item('Roasted squash', 90, 40, 1, 10, 0.1),
-    ],
+    items: described('a cup of chickpeas, half an avocado, cherry tomatoes and a cup of quinoa'),
   }),
   steakSalad: () => ({
     photo: photo('photo-1504674900247-0877df9cc836'),
-    items: [
-      item('Sirloin steak', 150, 310, 39, 0, 17),
-      item('Mixed greens', 80, 15, 1.2, 2.9, 0.2),
-      item('Vinaigrette', 20, 90, 0, 1, 10),
-    ],
+    items: described('150 g steak, mixed greens and a tablespoon of vinaigrette'),
   }),
   pizza: () => ({
     photo: photo('photo-1565299624946-b28f40a0ae38'),
-    items: [item('BBQ chicken pizza', 220, 580, 27, 66, 22)],
+    items: described('two slices of pizza'),
   }),
   salad: () => ({
     photo: photo('photo-1540189549336-e6e99c3679fe'),
-    items: [item('Garden salad', 200, 140, 4, 14, 8), item('Feta', 30, 80, 4.3, 1.2, 6.4)],
+    items: described('a greek salad with feta'),
   }),
 };
 
@@ -100,6 +73,7 @@ function entryAt(date: Date, meal: FoodLogEntry['mealType'], key: MealKey): Food
     items,
     photoUri: uri,
     totalMacros: sumMacros(items.map((food) => food.macros)),
+    totalMicros: sumMicros(items.map((food) => food.micros)),
   };
 }
 
@@ -176,6 +150,11 @@ export function clearAllData() {
 
 /** A pending estimate, as if the model had just answered. Still needs Confirm. */
 export function stageSampleReview() {
-  const { photo: uri, items } = MEALS.pokeBowl();
-  useReviewStore.getState().setPending({ photoUri: uri, items });
+  const { photo: uri } = MEALS.pokeBowl();
+  // Staged as a photo estimate would arrive: from the AI, several items.
+  const items = described('120 g salmon, a cup of sushi rice, edamame and a cucumber').map((food) => ({
+    ...food,
+    source: 'vision-ai' as const,
+  }));
+  useReviewStore.getState().setPending({ origin: 'photo', photoUri: uri, items, aiUsed: true, mealFrom: 'clock' });
 }

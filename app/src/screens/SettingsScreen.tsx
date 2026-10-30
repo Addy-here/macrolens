@@ -10,8 +10,12 @@ import { GroupLabel, ListRow } from '../components/ui/ListRow';
 import { Segmented } from '../components/ui/Segmented';
 import { colors, spacing, typography } from '../theme';
 import { useUserStore } from '../store/useUserStore';
+import { useFoodLibraryStore } from '../store/useFoodLibraryStore';
+import { useToastStore } from '../store/useToastStore';
+import { BackupError, exportBackup, pickBackup, restoreBackup } from '../services/backup';
+import { router } from 'expo-router';
 import { usePlanStore } from '../store/usePlanStore';
-import { useDevAutoScroll } from '../dev/devScroll';
+import { useDevAction, useDevAutoScroll } from '../dev/devScroll';
 import { clearAllData, seedSampleData } from '../dev/sampleData';
 import { calculateInitialPlan } from '../utils/planCalculator';
 import type { ActivityLevel, UserProfile } from '../types';
@@ -43,6 +47,7 @@ export function SettingsScreen() {
   const setPlan = usePlanStore((s) => s.setPlan);
   const currentPlan = usePlanStore((s) => s.currentPlan);
   const scrollRef = useDevAutoScroll('settings');
+  const myFoodCount = useFoodLibraryStore((s) => s.foods.length);
 
   const [draft, setDraft] = useState<UserProfile>(profile ?? BLANK_PROFILE);
   const [saved, setSaved] = useState(Boolean(profile));
@@ -60,6 +65,43 @@ export function SettingsScreen() {
   function patch<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
     setDraft((prev) => ({ ...prev, [key]: value }));
     setSaved(false);
+  }
+
+  useDevAction('settings.export', () => void runExport());
+
+  async function runExport() {
+    try {
+      await exportBackup();
+    } catch {
+      Alert.alert('Couldn’t export', 'Try again in a moment.');
+    }
+  }
+
+  async function runImport() {
+    try {
+      const summary = await pickBackup();
+      if (!summary) return;
+      const when = summary.exportedAt.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+      Alert.alert(
+        'Replace your data?',
+        `Backup from ${when}: ${summary.meals} meals, ${summary.weighIns} weigh-ins, ${summary.foods} foods. Everything on this iPhone is replaced.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Replace',
+            style: 'destructive',
+            onPress: () => {
+              void restoreBackup(summary.backup).then(() => {
+                void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                useToastStore.getState().show('Backup restored', undefined, 'done');
+              });
+            },
+          },
+        ],
+      );
+    } catch (error) {
+      Alert.alert('Couldn’t import', error instanceof BackupError ? error.message : 'Try another file.');
+    }
   }
 
   function handleSave() {
@@ -211,7 +253,27 @@ export function SettingsScreen() {
         />
       </View>
 
+      <GroupLabel>Food</GroupLabel>
+      <Card padded={false}>
+        <ListRow
+          first
+          icon="fork.knife"
+          tint={colors.tile.orange}
+          title="My Foods"
+          value={myFoodCount ? String(myFoodCount) : undefined}
+          accessory="chevron"
+          onPress={() => router.push('/settings/foods')}
+        />
+      </Card>
+
       <AiKeySection />
+
+      <GroupLabel>Data</GroupLabel>
+      <Card padded={false}>
+        <ListRow first icon="square.and.arrow.up" tint={colors.tile.teal} title="Export Backup" onPress={() => void runExport()} />
+        <ListRow icon="square.and.arrow.down" tint={colors.tile.indigo} title="Import Backup" onPress={() => void runImport()} />
+      </Card>
+      <Text style={styles.footnote}>Stored only on this iPhone. Deleting the app deletes it, so export a backup first.</Text>
 
       {__DEV__ ? (
         <>
@@ -222,7 +284,6 @@ export function SettingsScreen() {
               icon="wand.and.stars"
               tint={colors.tile.indigo}
               title="Load sample data"
-              subtitle="Ten days of meals and seven weeks of weigh-ins"
               onPress={seedSampleData}
             />
             <ListRow
@@ -240,7 +301,6 @@ export function SettingsScreen() {
         </>
       ) : null}
 
-      <Text style={styles.footer}>Your log stays on this iPhone.</Text>
     </ScrollView>
   );
 }
@@ -374,6 +434,13 @@ const styles = StyleSheet.create({
   },
   save: {
     marginTop: spacing.lg,
+  },
+  footnote: {
+    ...typography.footnote,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.md,
+    lineHeight: 18,
   },
   footer: {
     ...typography.caption,

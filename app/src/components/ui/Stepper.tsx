@@ -37,8 +37,10 @@ export function Stepper({
   };
 
   const commit = () => {
-    const parsed = Number(draft);
-    if (Number.isFinite(parsed) && parsed >= min) onChange(Math.round(parsed));
+    const parsed = Number(draft.replace(',', '.'));
+    // Typed amounts are kept exact: whole grams, or quarters of a unit.
+    const exact = step < 1 ? Math.round(parsed * 4) / 4 : Math.round(parsed);
+    if (Number.isFinite(parsed) && exact >= min) onChange(exact);
     else setDraft(String(value));
   };
 
@@ -60,7 +62,7 @@ export function Stepper({
           value={draft}
           onChangeText={setDraft}
           onEndEditing={commit}
-          keyboardType="number-pad"
+          keyboardType={step < 1 ? 'decimal-pad' : 'number-pad'}
           keyboardAppearance="light"
           selectTextOnFocus
           style={styles.value}

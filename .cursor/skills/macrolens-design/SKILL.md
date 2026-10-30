@@ -13,7 +13,7 @@ Read `docs/DESIGN-SYSTEM.md` before changing UI. Tokens live in `app/src/theme/`
 
 ## What this app is
 
-A light food log in the system idiom. Every tab root has a native collapsing large title (`src/navigation/TabStack.tsx`). Today: a ringed week strip, the calories-left hero with a ring, three macro meters, and photo-first meal cards. Log: a dark viewfinder frame, a staged scan while the model works, and "Log again". Review: photo, total, meal picker, a stepper per item, one Confirm. Plan: the target and why it moved, the macro split, a scrubbable trend chart with range stats, goal progress with a date, and a weigh-in. Settings: the iOS Settings list with a live target preview.
+A light food log in the system idiom. Every tab root has a native collapsing large title (`src/navigation/TabStack.tsx`). Today: a ringed week strip, the calories-left hero with a ring, three macro meters, and photo-first meal cards (tap to edit, long-press for Log again / Delete with Undo; a meal's “+” logs into that meal). Log: “What did you eat?” with Speak and Photo as equal one-tap buttons and a text field, foods resolving live as you talk, then Search / Library / Quick add and “Log again”. A quick-log bar (tab-bar accessory) offers Speak and Photo on every tab. Review (page sheet): what you said or the photo, total, meal and day, a stepper per item in natural units, “Add a missed item”, one Confirm. Plan: the target and why it moved, the macro split, a scrubbable trend chart, goal progress, weigh-in. Settings: the iOS Settings list with a live target preview.
 
 ## Rules
 
@@ -24,18 +24,19 @@ A light food log in the system idiom. Every tab root has a native collapsing lar
 - “Left” and “over” stay neutral. Do not turn a surplus red.
 - Every ScrollView on a tab uses `contentInsetAdjustmentBehavior="automatic"`.
 - Animations check `useReducedMotion()`; controls give a haptic.
-- Review-before-save is the only write path for an estimate, including “Log again”.
+- Review-before-save is the only write path for anything, including voice, “Log again”, quick add, and edits.
+- Sheets with a pinned action use `presentation: 'modal'` and `SheetFooter`, not `formSheet`; memoise their `Stack.Screen` options.
+- Copy is strict: no hints, no explanations of the obvious, no AI-key nudges once a key is saved.
 
 ## Checking your work
 
-With Metro running and the iOS simulator booted, drive the app with the dev deep link and screenshot it:
+The app runs as a development build (`npx expo run:ios`, then `npx expo start`). Drive the simulator through the dev command file and screenshot it — see “Looking at the app in the simulator” in `docs/AGENT-GUIDE.md`:
 
 ```bash
-xcrun simctl openurl booted "exp://127.0.0.1:8081/--/dev?seed=1&go=/plan&y=500"
+C=$(xcrun simctl get_app_container booted com.adwaitmahadar.macrolens data)
+echo "seed=1&go=/plan&y=500" > "$C/Documents/dev-command.txt"
 xcrun simctl io booted screenshot shot.png
 ```
-
-`seed=1` loads sample data, `clear=1` wipes it, `go` picks a tab, `y` scrolls it, `review=1` opens a staged review sheet. Dev builds only.
 
 ## Do not
 

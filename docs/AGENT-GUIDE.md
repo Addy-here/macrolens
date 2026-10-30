@@ -20,7 +20,8 @@ macrolens/
 │   │   ├── screens/      # One file per screen, PascalCase, suffix "Screen"
 │   │   ├── components/   # Reusable UI, especially glass-surface primitives
 │   │   ├── navigation/   # TabStack: native large-title stack per tab
-│   │   ├── dev/          # Dev-only sample data + deep-link helpers
+│   │   ├── data/         # On-device food reference (foods, foodsMore, foodNutrients)
+│   │   ├── dev/          # Dev-only sample data, DevBridge, dev commands
 │   │   ├── store/        # Zustand stores (one per domain: logs, user, plan)
 │   │   ├── theme/         # Design tokens: colors, spacing, typography, glass
 │   │   ├── services/      # API clients: backend, vision AI, health kit
@@ -67,23 +68,68 @@ macrolens/
 ```bash
 cd app
 npm install              # install deps
-npx expo start            # dev server (scan QR with Expo Go, or press i/a)
+npx expo start            # dev server; opens the Macrolens dev build (not Expo Go)
 npx expo install <pkg>     # install a native-module-aware package (not npm install)
 npx tsc --noEmit            # typecheck
 ```
 
-### Looking at the app in the simulator
+### Running the app (development build, not Expo Go)
 
-With Metro running and the simulator booted, the dev-only `/dev` route
-drives the app without tapping:
+Macrolens uses native modules Expo Go doesn't ship (`expo-speech-recognition`),
+so it runs as its own development build. `ios/` is generated (CNG) and
+git-ignored.
 
 ```bash
-xcrun simctl openurl booted "exp://127.0.0.1:8081/--/dev?seed=1"           # sample data, Today
-xcrun simctl openurl booted "exp://127.0.0.1:8081/--/dev?go=/plan&y=500"    # a tab, scrolled
-xcrun simctl openurl booted "exp://127.0.0.1:8081/--/dev?review=1"          # staged review sheet
-xcrun simctl openurl booted "exp://127.0.0.1:8081/--/dev?clear=1"           # wipe all data
+brew install cocoapods     # once per Mac
+npx expo run:ios           # first time, and after adding/upgrading a native module
+npx expo start             # every day after that; press i to open the dev build
+npm test                   # parser, logging flow, review store (jest-expo)
+npm run typecheck
+```
+
+### Looking at the app in the simulator
+
+Run Metro yourself (`npx expo start`; not `CI=1`, which turns off file
+watching so edits never reach the app). Launch the dev build straight onto
+it — no deep link, so no "Open in Macrolens?" prompt:
+
+```bash
+xcrun simctl launch booted com.adwaitmahadar.macrolens --initialUrl http://127.0.0.1:8081
+xcrun simctl spawn booted defaults write com.adwaitmahadar.macrolens EXDevMenuShowsAtLaunch -bool false
+```
+
+The dev-only `DevBridge` (`src/dev/DevBridge.tsx`) polls a command file in
+the app's Documents folder:
+
+```bash
+C=$(xcrun simctl get_app_container booted com.adwaitmahadar.macrolens data)
+echo "seed=1&go=/plan&y=500" > "$C/Documents/dev-command.txt"   # sample data, a tab, scrolled
+echo "say=two%20eggs%20and%20toast" > "$C/Documents/dev-command.txt"  # prefill Log
+echo "action=log.review" > "$C/Documents/dev-command.txt"       # run a registered screen action
 xcrun simctl io booted screenshot shot.png
 ```
+
+Keys: `seed`, `clear`, `go` (URL-encoded route), `y`, `review`, `action`,
+`aikey` (1/0: act as if an AI key is saved — real requests still fail),
+`say` (prefill Log), `speak` (a WAV path to transcribe instead of the mic;
+16 kHz mono, e.g. `say -o x.aiff "…"` + `afconvert -f WAVE -d LEI16@16000
+-c 1`). Actions registered with `useDevAction`: `log.review`,
+`log.reviewAsHeard`, `log.stop`, `review.confirm`, `review.delete`,
+`review.editFirst`, `editor.save`, `today.editFirst`, `today.deleteFirst`,
+`today.addLunch`, `search.addFirst`, `settings.export`, `toast.action`,
+`log.simulateListening` (fakes a voice level and transcript, since real
+recognition can't run in this simulator).
+
+Known simulator limits:
+- The iOS 27 simulator's on-device speech model is broken (missing
+  `mini.json` in its Siri Understanding asset), so recognition fails there
+  with "Failed to initialize recognizer" — from the mic or a file. Test
+  voice on a device (`npx expo run:ios --device`). Everything after the
+  transcript can be tested with `/log?text=…`.
+- Microphone and speech-recognition permission can't both be granted with
+  `simctl privacy`. With the simulator shut down, set them in its TCC
+  database: `sqlite3 ~/Library/Developer/CoreSimulator/Devices/<udid>/data/Library/TCC/TCC.db`
+  (`kTCCServiceMicrophone`, `kTCCServiceSpeechRecognition`, `auth_value=2`).
 
 ## Current status
 

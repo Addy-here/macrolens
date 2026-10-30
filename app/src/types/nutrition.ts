@@ -11,6 +11,7 @@ export interface Micros {
   fiberG?: number;
   sugarG?: number;
   sodiumMg?: number;
+  saturatedFatG?: number;
   // Extended/optional set — user can enable more in settings.
   potassiumMg?: number;
   calciumMg?: number;
@@ -29,7 +30,15 @@ export interface FoodItem {
   /** Was this item's portion edited by the user after AI estimate? */
   userAdjusted: boolean;
   /** Source of this item's data. */
-  source: 'vision-ai' | 'manual-search' | 'manual-custom' | 'barcode';
+  source: 'vision-ai' | 'text-ai' | 'food-db' | 'manual-search' | 'manual-custom' | 'barcode';
+  /** A countable unit for this food ("egg", 50 g), so portions can read "2 eggs". */
+  serving?: { label: string; plural: string; grams: number };
+  /** The words this item was parsed from, when it came from speech or typing. */
+  heard?: string;
+  /** Parsed from a description but not matched to a food; it has no macros yet. */
+  unresolved?: boolean;
+  /** The person's own food this came from (My Foods), if any. */
+  libraryId?: string;
 }
 
 /** A logged meal/snack entry — one or more FoodItems logged together. */

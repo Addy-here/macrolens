@@ -15,7 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { Icon } from '../ui/Icon';
 import { colors, radius, shadow, typography } from '../../theme';
 
-type Variant = 'primary' | 'secondary';
+type Variant = 'primary' | 'secondary' | 'tonal';
 
 interface GlassButtonProps {
   label: string;
@@ -30,6 +30,7 @@ interface GlassButtonProps {
 /**
  * Capsule button. Primary is the one filled action on a screen: accent-tinted
  * Liquid Glass on iOS 26, solid accent elsewhere. Secondary is a white capsule.
+ * Tonal is the quieter alternative beside a primary: soft accent fill, accent text.
  */
 export function GlassButton({
   label,
@@ -44,7 +45,8 @@ export function GlassButton({
   // Clear glass over a flat gray page has nothing to refract and reads as missing,
   // so only the tinted primary uses the material; secondary is a white capsule.
   const glass = primary && !disabled && Platform.OS === 'ios' && isLiquidGlassAvailable();
-  const ink = disabled ? colors.textTertiary : primary ? colors.onAccent : colors.textPrimary;
+  const tonal = variant === 'tonal';
+  const ink = disabled ? colors.textTertiary : primary ? colors.onAccent : tonal ? colors.accent : colors.textPrimary;
 
   const content = (
     <View style={styles.inner}>
@@ -67,7 +69,7 @@ export function GlassButton({
       style={({ pressed }) => [
         styles.wrap,
         primary && !disabled && styles.lift,
-        !primary && !disabled && shadow.card,
+        variant === 'secondary' && !disabled && shadow.card,
         pressed && !glass && styles.pressed,
         style,
       ]}
@@ -86,7 +88,7 @@ export function GlassButton({
         <View
           style={[
             styles.base,
-            disabled ? styles.off : primary ? styles.primary : styles.secondary,
+            disabled ? styles.off : primary ? styles.primary : tonal ? styles.tonal : styles.secondary,
           ]}
         >
           {content}
@@ -128,6 +130,9 @@ const styles = StyleSheet.create({
   },
   secondary: {
     backgroundColor: colors.surface,
+  },
+  tonal: {
+    backgroundColor: colors.accentSoft,
   },
   off: {
     backgroundColor: colors.fill,

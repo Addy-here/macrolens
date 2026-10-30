@@ -8,7 +8,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.adwaitmahadar.macrolens",
+      "appleTeamId": "DNYJM6CGV5"
     },
     "android": {
       "adaptiveIcon": {
@@ -33,6 +35,13 @@
         {
           "photosPermission": "Macrolens looks at a photo of your meal to estimate portions. The photo is sent only to the AI provider whose key you saved.",
           "cameraPermission": "Macrolens uses the camera to photograph a meal for an estimate you review before it is logged."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Macrolens listens while you say what you ate, so it can log it for you.",
+          "speechRecognitionPermission": "Macrolens turns what you say into foods on this iPhone. Your voice is not stored."
         }
       ]
     ]

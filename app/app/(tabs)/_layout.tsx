@@ -1,5 +1,7 @@
 import React from 'react';
+import { usePathname } from 'expo-router';
 import { NativeTabs } from 'expo-router/native-tabs';
+import { QuickLogBar } from '../../src/components/QuickLogBar';
 import { colors } from '../../src/theme';
 
 /**
@@ -9,14 +11,21 @@ import { colors } from '../../src/theme';
  * root screen has a system large title. See docs/DECISIONS.md.
  */
 export default function TabsLayout() {
+  // Log has Speak and Photo in its own card; the quick-log bar would repeat them there.
+  const onLog = usePathname().startsWith('/log');
   return (
     <NativeTabs tintColor={colors.accent} minimizeBehavior="onScrollDown">
+      {onLog ? null : (
+        <NativeTabs.BottomAccessory>
+          <QuickLogBar />
+        </NativeTabs.BottomAccessory>
+      )}
       <NativeTabs.Trigger name="(today)">
         <NativeTabs.Trigger.Icon sf={{ default: 'fork.knife.circle', selected: 'fork.knife.circle.fill' }} />
         <NativeTabs.Trigger.Label>Today</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="log">
-        <NativeTabs.Trigger.Icon sf={{ default: 'camera', selected: 'camera.fill' }} />
+        <NativeTabs.Trigger.Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} />
         <NativeTabs.Trigger.Label>Log</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="plan">

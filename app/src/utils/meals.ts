@@ -1,5 +1,5 @@
 import type { SFSymbol } from 'expo-symbols';
-import type { FoodItem, FoodLogEntry } from '../types';
+import type { FoodItem, FoodLogEntry, Micros } from '../types';
 
 export type MealType = FoodLogEntry['mealType'];
 
@@ -16,11 +16,12 @@ export function mealLabel(key: MealType) {
   return MEALS.find((meal) => meal.key === key)?.label ?? key;
 }
 
+/** The meal the clock suggests. Late night and the small hours are a snack, not breakfast. */
 export function suggestedMeal(date = new Date()): MealType {
-  const hour = date.getHours();
-  if (hour < 10) return 'breakfast';
-  if (hour < 15) return 'lunch';
-  if (hour < 21) return 'dinner';
+  const minutes = date.getHours() * 60 + date.getMinutes();
+  if (minutes >= 4 * 60 && minutes < 10 * 60 + 30) return 'breakfast';
+  if (minutes >= 10 * 60 + 30 && minutes < 15 * 60) return 'lunch';
+  if (minutes >= 17 * 60 && minutes < 22 * 60) return 'dinner';
   return 'snack';
 }
 
@@ -51,5 +52,15 @@ export function scaleItem(item: FoodItem, grams: number): FoodItem {
       carbsG: tenth(item.macros.carbsG),
       fatG: tenth(item.macros.fatG),
     },
+    micros: item.micros ? scaleMicros(item.micros, ratio) : undefined,
   };
+}
+
+export function scaleMicros(micros: Micros, ratio: number): Micros {
+  const out: Micros = {};
+  for (const [key, value] of Object.entries(micros) as [keyof Micros, number | undefined][]) {
+    if (value == null) continue;
+    out[key] = key.endsWith('Mg') ? Math.round(value * ratio) : Math.round(value * ratio * 10) / 10;
+  }
+  return out;
 }

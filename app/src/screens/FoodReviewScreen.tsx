@@ -1,121 +1,237 @@
-import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, ZoomIn, useReducedMotion } from 'react-native-reanimated';
+import { router, Stack } from 'expo-router';
 import { GlassButton } from '../components/glass';
 import { Card } from '../components/ui/Card';
 import { Icon } from '../components/ui/Icon';
+import { ListRow } from '../components/ui/ListRow';
 import { MacroMarks } from '../components/ui/MacroMarks';
 import { SectionHeader } from '../components/ui/SectionHeader';
 import { Segmented } from '../components/ui/Segmented';
+import { SheetFooter } from '../components/ui/SheetFooter';
 import { Stepper } from '../components/ui/Stepper';
 import { colors, radius, spacing, typography } from '../theme';
+import { deleteEntryWithUndo, loggedAtFor, recheckWithAI } from '../services/logFlow';
+import { persistPhoto, resolvePhotoUri } from '../services/photos';
+import { VisionError } from '../services/visionApi';
+import { useAiKeyStore } from '../store/useAiKeyStore';
+import { useFoodLibraryStore } from '../store/useFoodLibraryStore';
 import { useFoodLogStore } from '../store/useFoodLogStore';
 import { useReviewStore } from '../store/useReviewStore';
+import { useToastStore } from '../store/useToastStore';
+import { useDevAction, useDevAutoScroll } from '../dev/devScroll';
+import { addDays, dateFromKey, localDateKey } from '../utils/date';
+import { portionLabel } from '../utils/describe';
 import { createId } from '../utils/id';
-import { sumMacros } from '../utils/macros';
+import { sumMacros, sumMicros } from '../utils/macros';
 import { MEALS, mealLabel, scaleItem, suggestedMeal, type MealType } from '../utils/meals';
 import type { FoodItem } from '../types';
 
-/** Nothing from the model is saved until the user confirms here. */
+function dayLabel(key: string) {
+  const today = localDateKey(new Date());
+  if (key === today) return 'Today';
+  if (key === localDateKey(addDays(new Date(), -1))) return 'Yesterday';
+  return dateFromKey(key).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+/**
+ * The only place a meal is written to the log. Every way of logging — voice,
+ * typing, photo, search, log again, quick add — and editing an existing meal
+ * ends here, and nothing is saved until Confirm.
+ */
 export function FoodReviewScreen() {
-  const insets = useSafeAreaInsets();
-  const reduceMotion = useReducedMotion();
   const pending = useReviewStore((s) => s.pending);
-  const [items, setItems] = useState<FoodItem[]>(pending?.items ?? []);
+  const hasKey = useAiKeyStore((s) => s.hasKey);
   const [mealType, setMealType] = useState<MealType>(suggestedMeal);
-  const [logged, setLogged] = useState(false);
+  const [dateKey, setDateKey] = useState(() => localDateKey(new Date()));
+  const [rechecking, setRechecking] = useState(false);
+  const scrollRef = useDevAutoScroll('review');
 
+  // Each new review starts from what was staged with it (or sensible defaults).
   useEffect(() => {
-    setItems(pending?.items ?? []);
-  }, [pending]);
+    if (!pending) return;
+    setMealType(pending.mealType ?? suggestedMeal());
+    setDateKey(pending.dateKey ?? localDateKey(new Date()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending?.session]);
 
-  const totals = sumMacros(items.map((food) => food.macros));
+  const editingHeader = Boolean(pending?.entryId);
+  // Memoised: a new options object every render makes the header update the screen in a loop.
+  const headerOptions = useMemo(
+    () => ({
+      headerShown: true,
+      title: editingHeader ? 'Edit Meal' : 'Review',
+      headerShadowVisible: false,
+      headerStyle: { backgroundColor: colors.background },
+      headerTitleStyle: { color: colors.textPrimary },
+      headerRight: () => (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          hitSlop={10}
+          onPress={() => {
+            router.back();
+            useReviewStore.getState().clear();
+          }}
+          style={styles.close}
+        >
+          <Icon name="xmark" size={15} color={colors.textPrimary} weight="semibold" />
+        </Pressable>
+      ),
+    }),
+    [editingHeader],
+  );
 
-  const confirm = () => {
-    if (!pending || items.length === 0 || logged) return;
-    useFoodLogStore.getState().addEntry({
-      id: createId(),
-      loggedAt: new Date().toISOString(),
-      mealType,
-      items,
-      photoUri: pending.photoUri || undefined,
-      totalMacros: totals,
-    });
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setLogged(true);
-    setTimeout(
-      () => {
-        useReviewStore.getState().markLogged();
-        router.back();
-      },
-      reduceMotion ? 450 : 900,
-    );
-  };
+  useDevAction('review.confirm', () => confirm());
+  useDevAction('review.delete', () => deleteMeal());
+  useDevAction('review.editFirst', () => {
+    const first = pending?.items.find((item) => !item.unresolved);
+    if (first) router.push({ pathname: '/food-editor', params: { item: first.id } });
+  });
 
   if (!pending) {
-    return (
-      <View style={[styles.screen, styles.emptyReview]}>
-        <Text style={styles.emptyTitle}>Nothing to review</Text>
-        <GlassButton label="Close" onPress={() => router.back()} />
-      </View>
+    return <View style={styles.screen} />;
+  }
+
+  const items = pending.items;
+  const editing = Boolean(pending.entryId);
+  const resolved = items.filter((item) => !item.unresolved);
+  const totals = sumMacros(resolved.map((item) => item.macros));
+  const micros = sumMicros(resolved.map((item) => item.micros));
+  const hasMicros = resolved.some((item) => item.micros);
+  const unresolved = items.length - resolved.length;
+  const today = localDateKey(new Date());
+  const clockMeal = suggestedMeal();
+  const nudge =
+    !editing && dateKey === today && pending.mealFrom !== 'said' && mealType !== clockMeal ? clockMeal : null;
+  const canRecheck = hasKey && Boolean(pending.transcript) && !pending.aiUsed && !editing;
+
+  function confirm() {
+    if (!pending || items.length === 0 || unresolved > 0) return;
+    const id = pending.entryId ?? createId();
+    const entry = {
+      id,
+      loggedAt: loggedAtFor(dateKey, mealType, pending.loggedAt),
+      mealType,
+      items,
+      photoUri: persistPhoto(pending.photoUri || undefined, id),
+      totalMacros: totals,
+      totalMicros: hasMicros ? micros : undefined,
+    };
+    const log = useFoodLogStore.getState();
+    if (editing) log.updateEntry(id, entry);
+    else log.addEntry(entry);
+    // A dish the AI estimated and you kept is matched instantly next time.
+    useFoodLibraryStore.getState().learn(items);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    useReviewStore.getState().markLogged();
+    router.back();
+    useToastStore.getState().show(
+      editing ? 'Saved' : `${mealLabel(mealType)} · ${Math.round(totals.calories).toLocaleString()} kcal`,
+      editing ? undefined : { label: 'Undo', run: () => useFoodLogStore.getState().removeEntry(id) },
+      'done',
     );
   }
 
+  function chooseDay() {
+    const keys = Array.from({ length: 7 }, (_, i) => localDateKey(addDays(new Date(), -i)));
+    const labels = keys.map(dayLabel);
+    const pick = (index: number) => {
+      if (index >= 0 && index < keys.length) setDateKey(keys[index]);
+    };
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions({ options: [...labels, 'Cancel'], cancelButtonIndex: labels.length }, pick);
+    } else {
+      Alert.alert('Day', undefined, [
+        ...labels.slice(0, 3).map((label, index) => ({ text: label, onPress: () => pick(index) })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]);
+    }
+  }
+
+  function deleteMeal() {
+    const entry = useFoodLogStore.getState().entries.find((candidate) => candidate.id === pending?.entryId);
+    if (!entry) return;
+    router.back();
+    useReviewStore.getState().clear();
+    deleteEntryWithUndo(entry);
+  }
+
+  async function recheck() {
+    setRechecking(true);
+    try {
+      await recheckWithAI();
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      Alert.alert('Couldn’t reach the AI', error instanceof VisionError ? error.message : undefined);
+    } finally {
+      setRechecking(false);
+    }
+  }
+
+  const confirmLabel =
+    items.length === 0
+      ? 'Nothing to log'
+      : unresolved > 0
+        ? `Match or remove ${unresolved} ${unresolved === 1 ? 'item' : 'items'}`
+        : editing
+          ? 'Save'
+          : `Log ${Math.round(totals.calories).toLocaleString()} kcal`;
+
   return (
     <View style={styles.screen}>
-      <View style={styles.topBar}>
-        <View style={styles.flex}>
-          <Text style={styles.title} accessibilityRole="header">
-            Review
-          </Text>
-          <Text style={styles.subtitle}>Check portions. Nothing is saved until you log it.</Text>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Discard estimate"
-          hitSlop={10}
-          onPress={() => router.back()}
-          style={styles.close}
-        >
-          <Icon name="xmark" size={13} color={colors.textSecondary} weight="bold" />
-        </Pressable>
-      </View>
-
+      <Stack.Screen options={headerOptions} />
       <ScrollView
+        ref={scrollRef}
+        contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets
       >
         {pending.photoUri ? (
-          <View style={styles.photoWrap}>
-            <Image source={{ uri: pending.photoUri }} style={styles.photo} contentFit="cover" transition={200} />
-            <View style={styles.photoBadge}>
-              <Icon name="sparkles" size={12} color={colors.textOnMedia} />
-              <Text style={styles.photoBadgeText}>
-                {items.length} {items.length === 1 ? 'item' : 'items'} found
-              </Text>
-            </View>
+          <Image source={{ uri: resolvePhotoUri(pending.photoUri) }} style={styles.photo} contentFit="cover" transition={200} />
+        ) : null}
+
+        {pending.transcript ? (
+          <View style={styles.quote}>
+            <Text style={styles.quoteText}>“{pending.transcript}”</Text>
+            {pending.aiNote ? <Text style={styles.aiNote}>{pending.aiNote}</Text> : null}
+            {canRecheck ? (
+              <Pressable
+                accessibilityRole="button"
+                disabled={rechecking}
+                onPress={() => void recheck()}
+                hitSlop={6}
+                style={({ pressed }) => [styles.askAI, pressed && styles.pressed]}
+              >
+                <Icon name="sparkles" size={13} color={colors.accent} />
+                <Text style={styles.askAIText}>{rechecking ? 'Asking…' : 'Ask AI'}</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
 
         <Card style={styles.summary}>
-          <View
-            accessible
-            accessibilityLabel={`Total ${Math.round(totals.calories)} calories`}
-            style={styles.summaryTop}
-          >
+          <View accessible accessibilityLabel={`Total ${Math.round(totals.calories)} calories`} style={styles.summaryTop}>
             <Text style={styles.summaryNumber}>{Math.round(totals.calories).toLocaleString()}</Text>
             <Text style={styles.summaryUnit}>kcal</Text>
           </View>
-          <View style={styles.summaryMacros}>
-            <MacroTotal label="Protein" grams={totals.proteinG} color={colors.protein} />
-            <MacroTotal label="Carbs" grams={totals.carbsG} color={colors.carbs} />
-            <MacroTotal label="Fat" grams={totals.fatG} color={colors.fat} />
+          <View style={styles.nutrientRow}>
+            <NutrientTotal label="Protein" value={totals.proteinG} unit="g" color={colors.protein} />
+            <NutrientTotal label="Carbs" value={totals.carbsG} unit="g" color={colors.carbs} />
+            <NutrientTotal label="Fat" value={totals.fatG} unit="g" color={colors.fat} />
           </View>
+          {hasMicros ? (
+            <View style={[styles.nutrientRow, styles.nutrientRowSecond]}>
+              <NutrientTotal label="Fiber" value={micros.fiberG} unit="g" />
+              <NutrientTotal label="Sugar" value={micros.sugarG} unit="g" />
+              <NutrientTotal label="Sat. fat" value={micros.saturatedFatG} unit="g" />
+              <NutrientTotal label="Sodium" value={micros.sodiumMg} unit="mg" />
+            </View>
+          ) : null}
         </Card>
 
         <Segmented
@@ -124,78 +240,183 @@ export function FoodReviewScreen() {
           value={mealType}
           onChange={setMealType}
         />
-
-        <SectionHeader title="Items" trailing="Tap a number to type it" />
-        {items.length === 0 ? (
-          <Text style={styles.emptyItems}>Every item was removed. Close to discard this photo.</Text>
+        {nudge ? (
+          <Pressable accessibilityRole="button" onPress={() => setMealType(nudge)} style={styles.nudge} hitSlop={4}>
+            <Icon name="clock" size={13} color={colors.textSecondary} />
+            <Text style={styles.nudgeText}>
+              It’s {new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}.{' '}
+              <Text style={styles.nudgeAction}>Log as {mealLabel(nudge)}</Text>
+            </Text>
+          </Pressable>
         ) : null}
+        <Card padded={false}>
+          <ListRow first icon="calendar" tint={colors.tile.orange} title="Day" value={dayLabel(dateKey)} accessory="chevron" onPress={chooseDay} />
+        </Card>
+
+        <SectionHeader title="Items" trailing={items.length > 1 ? `${items.length}` : undefined} />
         {items.map((food) => (
-          <Card key={food.id} style={styles.item}>
-            <View style={styles.itemHeader}>
-              <Text style={styles.itemName} numberOfLines={2}>
-                {food.name}
-              </Text>
-              {food.userAdjusted ? <Text style={styles.edited}>Edited</Text> : null}
-              <Text style={styles.itemKcal}>{Math.round(food.macros.calories)} kcal</Text>
-            </View>
-            <MacroMarks macros={food.macros} />
-            <View style={styles.itemControls}>
-              <Stepper
-                label={`${food.name} portion`}
-                value={food.portionGrams}
-                unit="g"
-                step={10}
-                onChange={(grams) =>
-                  setItems((prev) => prev.map((entry) => (entry.id === food.id ? scaleItem(entry, grams) : entry)))
-                }
-              />
-              <Pressable
-                onPress={() => {
-                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setItems((prev) => prev.filter((entry) => entry.id !== food.id));
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`Remove ${food.name}`}
-                hitSlop={8}
-                style={styles.remove}
-              >
-                <Icon name="trash" size={16} color={colors.textTertiary} weight="medium" />
-              </Pressable>
-            </View>
-          </Card>
+          <ItemCard key={food.id} food={food} />
         ))}
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/search?mode=add')}
+          style={({ pressed }) => [styles.addItem, pressed && styles.pressed]}
+        >
+          <Icon name="plus.circle.fill" size={20} color={colors.accent} weight="regular" />
+          <Text style={styles.addItemText}>Add item</Text>
+        </Pressable>
+
+        {editing ? (
+          <Pressable accessibilityRole="button" onPress={deleteMeal} style={styles.deleteMeal}>
+            <Text style={styles.deleteMealText}>Delete Meal</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }]}>
+      <SheetFooter>
         <GlassButton
-          label={items.length ? `Log ${Math.round(totals.calories).toLocaleString()} kcal to ${mealLabel(mealType)}` : 'Nothing to log'}
-          icon="checkmark"
+          label={confirmLabel}
+          icon={items.length && !unresolved ? 'checkmark' : undefined}
           variant="primary"
           onPress={confirm}
-          disabled={items.length === 0}
+          disabled={items.length === 0 || unresolved > 0}
         />
-      </View>
-
-      {logged ? (
-        <Animated.View entering={FadeIn.duration(160)} style={styles.done} accessibilityLiveRegion="assertive">
-          <Animated.View entering={reduceMotion ? undefined : ZoomIn.springify().damping(12)} style={styles.doneDisc}>
-            <Icon name="checkmark" size={40} color={colors.onAccent} weight="bold" />
-          </Animated.View>
-          <Text style={styles.doneText}>Logged to {mealLabel(mealType)}</Text>
-        </Animated.View>
-      ) : null}
+      </SheetFooter>
     </View>
   );
 }
 
-function MacroTotal({ label, grams, color }: { label: string; grams: number; color: string }) {
+function ItemCard({ food }: { food: FoodItem }) {
+  const update = (next: FoodItem) => useReviewStore.getState().updateItem(next);
+  const remove = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    useReviewStore.getState().removeItem(food.id);
+  };
+  const quick = food.source === 'manual-custom' && food.name === 'Quick add';
+  const ai = food.source === 'vision-ai' || food.source === 'text-ai';
+  const mine = Boolean(food.libraryId);
+  const badge = food.userAdjusted ? 'edited' : mine ? 'mine' : ai ? 'ai' : null;
+
+  if (food.unresolved) {
+    return (
+      <Card style={[styles.item, styles.unresolved]}>
+        <View style={styles.itemHeader}>
+          <Text style={[styles.itemName, styles.unresolvedName]} numberOfLines={2}>
+            {food.name}
+          </Text>
+          <Text style={styles.tagMuted}>Not found</Text>
+        </View>
+        <View style={styles.itemControls}>
+          <GlassButton
+            label="Find it"
+            icon="magnifyingglass"
+            onPress={() => {
+              const phrase = food.heard ?? food.name;
+              useReviewStore.getState().removeItem(food.id);
+              router.push({ pathname: '/search', params: { mode: 'add', q: phrase, link: phrase } });
+            }}
+            style={styles.findButton}
+          />
+          <RemoveButton name={food.name} onPress={remove} />
+        </View>
+      </Card>
+    );
+  }
+
   return (
-    <View style={styles.macroTotal} accessible accessibilityLabel={`${label} ${Math.round(grams)} grams`}>
-      <View style={styles.macroTotalLabel}>
-        <View style={[styles.dot, { backgroundColor: color }]} />
-        <Text style={styles.macroTotalName}>{label}</Text>
+    <Card style={styles.item}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${food.name}, ${Math.round(food.macros.calories)} calories. Edit nutrition`}
+        onPress={() => router.push({ pathname: '/food-editor', params: { item: food.id } })}
+        style={({ pressed }) => [styles.itemTap, pressed && styles.pressed]}
+      >
+        <View style={styles.itemHeader}>
+          {badge ? <SourceBadge kind={badge} /> : null}
+          <Text style={styles.itemName} numberOfLines={2}>
+            {food.name}
+          </Text>
+          <Text style={styles.itemKcal}>{Math.round(food.macros.calories)} kcal</Text>
+          <Icon name="chevron.right" size={12} color={colors.textTertiary} weight="semibold" />
+        </View>
+        {quick ? null : (
+          <View style={styles.itemMeta}>
+            <MacroMarks macros={food.macros} />
+            {food.serving ? <Text style={styles.metaText}>{food.portionGrams} g</Text> : null}
+          </View>
+        )}
+      </Pressable>
+      <View style={styles.itemControls}>
+        {quick ? (
+          <Stepper
+            label="Calories"
+            value={food.macros.calories}
+            unit="kcal"
+            step={10}
+            onChange={(calories) => update({ ...food, userAdjusted: true, macros: { ...food.macros, calories } })}
+          />
+        ) : food.serving ? (
+          <Stepper
+            label={`${food.name}, ${portionLabel(food)}`}
+            value={Math.round((food.portionGrams / food.serving.grams) * 4) / 4}
+            unit={Math.abs(food.portionGrams - food.serving.grams) < 0.5 ? food.serving.label : food.serving.plural}
+            step={food.serving.grams >= 100 ? 0.5 : 1}
+            min={0.25}
+            onChange={(count) => update(scaleItem(food, count * food.serving!.grams))}
+          />
+        ) : (
+          <Stepper
+            label={`${food.name} portion`}
+            value={food.portionGrams}
+            unit="g"
+            step={food.portionGrams <= 50 ? 5 : 10}
+            onChange={(grams) => update(scaleItem(food, grams))}
+          />
+        )}
+        <RemoveButton name={food.name} onPress={remove} />
       </View>
-      <Text style={styles.macroTotalValue}>{Math.round(grams)} g</Text>
+    </Card>
+  );
+}
+
+function RemoveButton({ name, onPress }: { name: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Remove ${name}`} hitSlop={8} style={styles.remove}>
+      <Icon name="trash" size={16} color={colors.textTertiary} weight="medium" />
+    </Pressable>
+  );
+}
+
+/** One nutrient total. Macros carry their color dot; the others share the same type, without one. */
+function NutrientTotal({ label, value, unit, color }: { label: string; value: number; unit: string; color?: string }) {
+  const shown = Math.round(value).toLocaleString();
+  return (
+    <View style={styles.nutrient} accessible accessibilityLabel={`${label} ${shown} ${unit === 'mg' ? 'milligrams' : 'grams'}`}>
+      <View style={styles.nutrientLabelRow}>
+        {color ? <View style={[styles.dot, { backgroundColor: color }]} /> : null}
+        <Text style={styles.nutrientLabel}>{label}</Text>
+      </View>
+      <Text style={styles.nutrientValue}>
+        {shown}
+        <Text style={styles.nutrientUnit}> {unit}</Text>
+      </Text>
+    </View>
+  );
+}
+
+const BADGES = {
+  ai: { icon: 'sparkles', label: 'AI estimate', tint: colors.accent, background: colors.accentSoft },
+  edited: { icon: 'pencil', label: 'Edited', tint: colors.textSecondary, background: colors.fill },
+  mine: { icon: 'person.fill', label: 'My food', tint: colors.textSecondary, background: colors.fill },
+} as const;
+
+/** Where an item's numbers came from, as a small icon badge in front of its name. */
+function SourceBadge({ kind }: { kind: keyof typeof BADGES }) {
+  const badge = BADGES[kind];
+  return (
+    <View accessible accessibilityLabel={badge.label} style={[styles.badge, { backgroundColor: badge.background }]}>
+      <Icon name={badge.icon} size={11} color={badge.tint} weight="semibold" />
     </View>
   );
 }
@@ -205,45 +426,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  flex: {
-    flex: 1,
-  },
-  emptyReview: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    padding: spacing.lg,
-  },
-  emptyTitle: {
-    ...typography.headline,
-    color: colors.textSecondary,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    paddingHorizontal: spacing.gutter,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
-  },
-  title: {
-    ...typography.largeTitle,
-    fontSize: 28,
-    color: colors.textPrimary,
-  },
-  subtitle: {
-    ...typography.footnote,
-    color: colors.textSecondary,
-    marginTop: 2,
+  pressed: {
+    opacity: 0.6,
   },
   close: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: colors.fill,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
   },
   list: {
     paddingHorizontal: spacing.gutter,
@@ -251,32 +441,43 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     gap: spacing.sm + 4,
   },
-  photoWrap: {
-    borderRadius: radius.lg,
-    borderCurve: 'continuous',
-    overflow: 'hidden',
-    backgroundColor: colors.surfaceRaised,
-  },
   photo: {
     width: '100%',
     aspectRatio: 16 / 10,
+    borderRadius: radius.lg,
+    borderCurve: 'continuous',
+    backgroundColor: colors.surfaceRaised,
   },
-  photoBadge: {
-    position: 'absolute',
-    left: spacing.sm + 4,
-    bottom: spacing.sm + 4,
+  quote: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderCurve: 'continuous',
+    backgroundColor: colors.surface,
+  },
+  quoteText: {
+    ...typography.callout,
+    color: colors.textSecondary,
+    lineHeight: 21,
+  },
+  aiNote: {
+    ...typography.footnote,
+    color: colors.danger,
+  },
+  askAI: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: colors.accentSoft,
   },
-  photoBadgeText: {
-    ...typography.caption,
+  askAIText: {
+    ...typography.footnote,
     fontWeight: '600',
-    color: colors.textOnMedia,
+    color: colors.accent,
   },
   summary: {
     gap: spacing.md,
@@ -295,47 +496,83 @@ const styles = StyleSheet.create({
     ...typography.headline,
     color: colors.textSecondary,
   },
-  summaryMacros: {
+  nutrientRow: {
     flexDirection: 'row',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.hairline,
     paddingTop: spacing.md - 4,
   },
-  macroTotal: {
+  nutrientRowSecond: {
+    marginTop: -spacing.xs,
+  },
+  nutrient: {
     flex: 1,
     gap: 2,
   },
-  macroTotalLabel: {
+  nutrientLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  nutrientLabel: {
+    ...typography.caption,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  nutrientValue: {
+    ...typography.statMedium,
+    fontSize: 18,
+    color: colors.textPrimary,
+  },
+  nutrientUnit: {
+    ...typography.caption,
+    fontWeight: '500',
+    color: colors.textTertiary,
+  },
+  badge: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderCurve: 'continuous',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
   },
-  macroTotalName: {
-    ...typography.caption,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  macroTotalValue: {
-    ...typography.statMedium,
-    fontSize: 18,
-    color: colors.textPrimary,
-  },
-  emptyItems: {
-    ...typography.callout,
-    color: colors.textSecondary,
+  nudge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: -spacing.xs,
     paddingHorizontal: spacing.xs,
+  },
+  nudgeText: {
+    ...typography.footnote,
+    color: colors.textSecondary,
+  },
+  nudgeAction: {
+    fontWeight: '600',
+    color: colors.accent,
   },
   item: {
     gap: spacing.sm,
   },
+  itemTap: {
+    gap: spacing.sm,
+  },
+  unresolved: {
+    borderWidth: 1.5,
+    borderColor: colors.accentSoft,
+  },
+  unresolvedName: {
+    color: colors.textSecondary,
+  },
   itemHeader: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   itemName: {
@@ -343,20 +580,33 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     flex: 1,
   },
-  edited: {
-    ...typography.caption,
-    color: colors.accent,
-    fontWeight: '600',
-  },
   itemKcal: {
     ...typography.statSmall,
     color: colors.textPrimary,
+  },
+  itemMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm + 2,
+  },
+  metaText: {
+    ...typography.caption,
+    color: colors.textTertiary,
+  },
+  tagMuted: {
+    ...typography.caption,
+    fontWeight: '600',
+    color: colors.textTertiary,
   },
   itemControls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: spacing.xs,
+  },
+  findButton: {
+    minWidth: 130,
   },
   remove: {
     width: 36,
@@ -366,30 +616,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.surfaceRaised,
   },
-  footer: {
-    paddingHorizontal: spacing.gutter,
-    paddingTop: spacing.sm + 4,
-    backgroundColor: colors.background,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.hairline,
-  },
-  done: {
-    ...StyleSheet.absoluteFill,
+  addItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    backgroundColor: 'rgba(242,242,247,0.94)',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm + 4,
+    paddingHorizontal: spacing.xs,
   },
-  doneDisc: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    backgroundColor: colors.accent,
+  addItemText: {
+    ...typography.headline,
+    color: colors.accent,
+  },
+  deleteMeal: {
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    marginTop: spacing.sm,
   },
-  doneText: {
-    ...typography.title,
-    color: colors.textPrimary,
+  deleteMealText: {
+    ...typography.body,
+    color: colors.danger,
   },
 });

@@ -114,15 +114,12 @@ export function PlanScreen() {
           </View>
           <GlassButton label="Save" variant="primary" onPress={saveWeight} disabled={!canSave} style={styles.weighSave} />
         </View>
-        <Text style={styles.weighHint}>
-          {latest
-            ? `Last: ${latest.scale.toFixed(1)} kg on ${new Date(latest.time).toLocaleDateString(undefined, {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-              })}. Weigh in mornings, before eating.`
-            : 'Weigh in mornings, before eating. Daily swings are normal; the trend smooths them out.'}
-        </Text>
+        {latest ? (
+          <Text style={styles.weighHint}>
+            Last {latest.scale.toFixed(1)} kg ·{' '}
+            {new Date(latest.time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+          </Text>
+        ) : null}
       </Card>
     </ScrollView>
   );

@@ -4,6 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ToastHost } from '../src/components/ui/ToastHost';
+import { DevBridge } from '../src/dev/DevBridge';
 import { colors } from '../src/theme';
 import { useAiKeyStore } from '../src/store/useAiKeyStore';
 
@@ -35,15 +37,41 @@ export default function RootLayout() {
           <Stack.Screen
             name="review"
             options={{
-              presentation: 'formSheet',
+              // A page sheet, not a formSheet: formSheet resizes the first ScrollView to fill the
+              // sheet and can't hold a pinned footer (react-native-screens RNSScreenContentWrapper).
+              presentation: 'modal',
+              headerShown: true,
+              headerShadowVisible: false,
+              headerStyle: { backgroundColor: colors.background },
               contentStyle: { backgroundColor: colors.background },
-              sheetGrabberVisible: true,
-              sheetAllowedDetents: [1],
-              sheetCornerRadius: 30,
+            }}
+          />
+          <Stack.Screen
+            name="search"
+            options={{
+              // A page sheet, not a formSheet: formSheet resizes the first ScrollView to fill the
+              // sheet and can't hold a pinned footer (react-native-screens RNSScreenContentWrapper).
+              presentation: 'modal',
+              headerShown: true,
+              headerShadowVisible: false,
+              headerStyle: { backgroundColor: colors.background },
+              contentStyle: { backgroundColor: colors.background },
+            }}
+          />
+          <Stack.Screen
+            name="food-editor"
+            options={{
+              presentation: 'modal',
+              headerShown: true,
+              headerShadowVisible: false,
+              headerStyle: { backgroundColor: colors.background },
+              contentStyle: { backgroundColor: colors.background },
             }}
           />
           <Stack.Screen name="dev" options={{ animation: 'none' }} />
         </Stack>
+        <ToastHost />
+        {__DEV__ ? <DevBridge /> : null}
         <StatusBar style="dark" />
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -13,10 +13,12 @@ import { WeekStrip } from '../components/ui/WeekStrip';
 import { colors, spacing, typography } from '../theme';
 import { useFoodLogStore } from '../store/useFoodLogStore';
 import { usePlanStore } from '../store/usePlanStore';
-import { useDevAutoScroll } from '../dev/devScroll';
+import { useDevAction, useDevAutoScroll } from '../dev/devScroll';
 import { dateFromKey, entryDateKey, localDateKey } from '../utils/date';
-import { sumMacros } from '../utils/macros';
-import { entryTitle, MEALS, timeLabel, type MealSymbol } from '../utils/meals';
+import { microTargets, sumMacros, sumMicros } from '../utils/macros';
+import { entryTitle, MEALS, timeLabel, type MealSymbol, type MealType } from '../utils/meals';
+import { deleteEntryWithUndo, stageAgain, stageEdit } from '../services/logFlow';
+import { useReviewStore } from '../store/useReviewStore';
 import type { FoodLogEntry, Macros } from '../types';
 
 const DEFAULT_TARGET: Macros = { calories: 2000, proteinG: 150, carbsG: 200, fatG: 65 };
@@ -63,6 +65,25 @@ export function HomeScreen() {
   );
 
   const totals = useMemo(() => sumMacros(dayEntries.map((entry) => entry.totalMacros)), [dayEntries]);
+  const micros = useMemo(
+    () => sumMicros(dayEntries.flatMap((entry) => entry.items.filter((item) => !item.unresolved).map((item) => item.micros))),
+    [dayEntries],
+  );
+  const microGoals = microTargets(target.calories);
+  const hasMicros = dayEntries.some((entry) => entry.items.some((item) => item.micros));
+
+  useDevAction('today.editFirst', () => {
+    if (!dayEntries[0]) return;
+    stageEdit(dayEntries[0]);
+    router.push('/review');
+  });
+  useDevAction('today.addLunch', () => {
+    useReviewStore.getState().setTarget({ mealType: 'lunch', dateKey: selectedKey });
+    router.navigate('/log');
+  });
+  useDevAction('today.deleteFirst', () => {
+    if (dayEntries[0]) deleteEntryWithUndo(dayEntries[0]);
+  });
 
   const dateLine = dateFromKey(selectedKey).toLocaleDateString(undefined, {
     weekday: 'long',
@@ -75,12 +96,13 @@ export function HomeScreen() {
       <Stack.Screen
         options={{
           title: titleFor(selectedKey),
-          headerRight:
+          headerLeft:
             selectedKey === todayKey
               ? undefined
               : () => (
                   <Pressable
                     accessibilityRole="button"
+                    accessibilityLabel="Back to today"
                     onPress={() => setSelectedKey(todayKey)}
                     hitSlop={8}
                     style={styles.headerButton}
@@ -107,6 +129,13 @@ export function HomeScreen() {
           <MacroCard label="Fat" value={totals.fatG} target={target.fatG} color={colors.fat} />
         </View>
 
+        <Card style={styles.nutrients}>
+          <Nutrient known={hasMicros} label="Fiber" value={micros.fiberG} goal={microGoals.fiberG} unit="g" />
+          <Nutrient known={hasMicros} label="Sugar" value={micros.sugarG} goal={microGoals.sugarG} unit="g" limit />
+          <Nutrient known={hasMicros} label="Sat. fat" value={micros.saturatedFatG} goal={microGoals.saturatedFatG} unit="g" limit />
+          <Nutrient known={hasMicros} label="Sodium" value={micros.sodiumMg} goal={microGoals.sodiumMg} unit="mg" limit />
+        </Card>
+
         <SectionHeader
           title="Meals"
           trailing={dayEntries.length > 0 ? `${dayEntries.length} logged` : undefined}
@@ -117,6 +146,8 @@ export function HomeScreen() {
               key={meal.key}
               label={meal.label}
               symbol={meal.symbol}
+              mealType={meal.key}
+              dateKey={selectedKey}
               entries={dayEntries.filter((entry) => entry.mealType === meal.key)}
             />
           ))}
@@ -200,13 +231,54 @@ function MacroCard({
   );
 }
 
+/**
+ * One extra nutrient against its daily guide. Fiber is a goal to reach; the
+ * others are limits, shown in the same neutral ink as everything else.
+ */
+function Nutrient({
+  label,
+  value,
+  goal,
+  unit,
+  limit = false,
+  known,
+}: {
+  label: string;
+  value: number;
+  goal: number;
+  unit: string;
+  limit?: boolean;
+  /** False when no meal that day carries this detail (e.g. quick adds), so 0 would mislead. */
+  known: boolean;
+}) {
+  const shown = !known ? '–' : unit === 'mg' ? Math.round(value).toLocaleString() : Math.round(value);
+  return (
+    <View
+      style={styles.nutrient}
+      accessible
+      accessibilityLabel={`${label} ${Math.round(value)} ${unit === 'mg' ? 'milligrams' : 'grams'}, ${limit ? 'limit' : 'goal'} ${goal}`}
+    >
+      <Text style={styles.nutrientLabel}>{label}</Text>
+      <Text style={styles.nutrientValue}>
+        {shown}
+        <Text style={styles.nutrientUnit}> {unit}</Text>
+      </Text>
+      <ProgressBar progress={goal > 0 ? value / goal : 0} color={colors.textTertiary} height={4} />
+    </View>
+  );
+}
+
 function MealCard({
   label,
   symbol,
+  mealType,
+  dateKey,
   entries,
 }: {
   label: string;
   symbol: MealSymbol;
+  mealType: MealType;
+  dateKey: string;
   entries: FoodLogEntry[];
 }) {
   const calories = Math.round(entries.reduce((sum, entry) => sum + entry.totalMacros.calories, 0));
@@ -216,8 +288,12 @@ function MealCard({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${label}, ${entries.length ? `${calories} calories` : 'nothing logged'}`}
-        accessibilityHint="Opens the camera to log a meal"
-        onPress={() => router.navigate('/log')}
+        accessibilityHint={`Log something to ${label.toLowerCase()}`}
+        onPress={() => {
+          void Haptics.selectionAsync();
+          useReviewStore.getState().setTarget({ mealType, dateKey });
+          router.navigate('/log');
+        }}
         style={styles.mealHeader}
       >
         <Icon name={symbol} size={17} color={colors.textSecondary} />
@@ -239,41 +315,60 @@ function MealCard({
 function EntryRow({ entry }: { entry: FoodLogEntry }) {
   const title = entryTitle(entry.items);
 
-  const confirmDelete = () => {
+  const edit = () => {
+    void Haptics.selectionAsync();
+    stageEdit(entry);
+    router.push('/review');
+  };
+
+  const again = () => {
+    useReviewStore.getState().setTarget(null);
+    stageAgain(entry);
+    router.push('/review');
+  };
+
+  const showActions = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const remove = () => useFoodLogStore.getState().removeEntry(entry.id);
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
           title,
-          options: ['Delete from log', 'Cancel'],
-          destructiveButtonIndex: 0,
-          cancelButtonIndex: 1,
+          options: ['Edit', 'Log again today', 'Delete', 'Cancel'],
+          destructiveButtonIndex: 2,
+          cancelButtonIndex: 3,
         },
         (index) => {
-          if (index === 0) remove();
+          if (index === 0) edit();
+          if (index === 1) again();
+          if (index === 2) deleteEntryWithUndo(entry);
         },
       );
       return;
     }
     Alert.alert(title, undefined, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: remove },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteEntryWithUndo(entry) },
     ]);
   };
 
   return (
     <Pressable
-      onLongPress={confirmDelete}
+      onPress={edit}
+      onLongPress={showActions}
       accessibilityRole="button"
       accessibilityLabel={`${title}, ${Math.round(entry.totalMacros.calories)} calories, ${timeLabel(entry.loggedAt)}`}
-      accessibilityActions={[{ name: 'delete', label: 'Delete from log' }]}
+      accessibilityHint="Opens the meal to edit it"
+      accessibilityActions={[
+        { name: 'again', label: 'Log again today' },
+        { name: 'delete', label: 'Delete from log' },
+      ]}
       onAccessibilityAction={(event) => {
-        if (event.nativeEvent.actionName === 'delete') confirmDelete();
+        if (event.nativeEvent.actionName === 'again') again();
+        if (event.nativeEvent.actionName === 'delete') deleteEntryWithUndo(entry);
       }}
       style={({ pressed }) => [styles.entry, pressed && styles.entryPressed]}
     >
-      <FoodThumb uri={entry.photoUri} size={54} />
+      <FoodThumb uri={entry.photoUri} size={54} symbol={MEALS.find((meal) => meal.key === entry.mealType)?.symbol} />
       <View style={styles.entryBody}>
         <Text style={styles.entryTitle} numberOfLines={1}>
           {title}
@@ -388,6 +483,28 @@ const styles = StyleSheet.create({
   },
   meals: {
     gap: spacing.sm + 2,
+  },
+  nutrients: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.sm + 2,
+    paddingVertical: spacing.md - 2,
+  },
+  nutrient: {
+    flex: 1,
+    gap: 4,
+  },
+  nutrientLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  nutrientValue: {
+    ...typography.statSmall,
+    color: colors.textPrimary,
+  },
+  nutrientUnit: {
+    ...typography.caption,
+    color: colors.textTertiary,
   },
   mealHeader: {
     flexDirection: 'row',

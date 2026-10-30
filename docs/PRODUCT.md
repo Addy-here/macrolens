@@ -36,8 +36,26 @@ one app, wrapped in an iOS 18 "Liquid Glass" visual language.
      (fiber, sugar, sodium, and a configurable extended set) attached to the
      log entry.
 
-2. **Manual/search logging** (fallback/complement to photos)
-   - Search a food database, barcode scan (stretch), quick-add custom meals.
+2. **Describe logging — say or type it** (the primary path since 2026-10-29)
+   - Tap the mic and say what you ate, or type it: “two scrambled eggs, a
+     slice of sourdough with butter and a flat white for breakfast”.
+   - On-device speech recognition; foods resolve live, as you talk, from an
+     on-device food reference (~170 foods with natural units), so it works
+     with no API key and offline. Meal and day are read from the words
+     (“yesterday for dinner”).
+   - Words the reference doesn't know go to the user's AI provider (text,
+     so Anthropic works too); without a key they wait on the review sheet
+     to be matched.
+   - With a key, a shaky instant match (unknown words, foods run together)
+     goes to the AI as a whole sentence; “Use as heard” keeps the instant
+     version. Simple meals stay instant and free.
+   - **My Foods:** foods you create, nutrition you correct, and AI estimates
+     you log are matched before the built-in list; words you resolve with
+     “Find it” map to that food from then on.
+   - Search, quick add, photo, and “log again” complement it. Barcode is
+     still a stretch goal.
+   - Data lives on the phone; Export/Import backup keeps it across
+     reinstalls until there's a backend.
 
 3. **Macro & micro tracking**
    - Daily rings/bars for calories, protein, carbs, fat.

@@ -59,7 +59,7 @@ export function AiKeySection() {
 
   return (
     <View>
-      <GroupLabel>Photo estimates</GroupLabel>
+      <GroupLabel>AI</GroupLabel>
       <Card padded={false}>
         {AI_PROVIDERS.map((item, index) => (
           <ListRow
@@ -100,11 +100,7 @@ export function AiKeySection() {
           icon={hasKey ? 'lock.fill' : 'key.fill'}
           tint={hasKey ? colors.tile.green : colors.tile.orange}
           title={hasKey ? 'Saved in Keychain' : 'No key yet'}
-          subtitle={
-            hasKey
-              ? 'Only this iPhone holds it. It is never shown again.'
-              : 'Paste a key to turn on photo estimates.'
-          }
+          subtitle={hasKey ? undefined : 'For photo estimates and AI matching'}
           trailing={
             hasKey ? (
               <Pressable accessibilityRole="button" onPress={() => void onClear()} hitSlop={8}>
@@ -137,11 +133,7 @@ export function AiKeySection() {
       </Card>
       {message ? (
         <Text style={[styles.footnote, messageTone === 'error' ? styles.error : styles.ok]}>{message}</Text>
-      ) : (
-        <Text style={styles.footnote}>
-          Photos go straight from this iPhone to {providerLabel(provider)}. Macrolens has no server in between.
-        </Text>
-      )}
+      ) : null}
     </View>
   );
 }

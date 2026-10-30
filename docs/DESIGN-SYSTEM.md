@@ -8,10 +8,11 @@ Built from what the leading apps in and around this category actually ship (see 
 
 1. **System chrome, our content.** Every tab root is a native stack with a large title that collapses on scroll. The tab bar is `NativeTabs`. The review is a native form sheet. We draw none of these.
 2. **One hero number per screen.** Today: calories left. Plan: daily target. Review: total kcal. Settings: the target your edits produce. SF Pro Rounded, proportional figures.
-3. **The photo is the meal.** Logged meals are rows with their photo, the foods by name, time, and P/C/F marks. Log is a dark viewfinder frame. Review leads with the photo.
+3. **Say it or snap it, then check it.** Log leads with “What did you eat?” — Speak and Photo as equal one-tap buttons, and a text field, with foods appearing live as you talk. Search, Library, and Quick add sit below. Review leads with what you said (or the photo), and logged meals keep their photo or a quiet utensil mark.
 4. **Explain, don't just display.** The target shows why it moved. The goal card says when you'll arrive at this pace. Settings shows the target your edits would produce before you save.
 5. **Neutral numbers.** "Left" and "over" use the same ink. Passing a target never turns red.
-6. **Review before save.** The only write path for an estimate is Confirm on the review sheet, including "Log again".
+6. **Review before save.** The only write path for anything is Confirm on the review sheet — voice, typing, photo, search, log again, quick add, and edits.
+7. **Nothing is a dead end.** Every meal can be edited or deleted (with Undo); a meal's “+” logs into that meal and day; unmatched words get a “Find it”; errors say what to do next.
 
 ## Color
 
@@ -38,20 +39,36 @@ System font. SF Pro Rounded (`ui-rounded`) for figures only: `hero` 52, `statLar
 - `MacroMarks` — P / C / F with a colored dot and neutral ink.
 - `FoodThumb` — the meal photo as a rounded square, or a quiet utensil mark.
 - `Segmented` — iOS segmented control with a spring-sliding thumb and selection haptics.
-- `Stepper` — minus / value / plus capsule; tap the value to type. VoiceOver adjustable.
+- `Stepper` — minus / value / plus capsule; tap the value to type. Counts in the food's own unit when it has one (“2 eggs”, half steps for big units), grams otherwise, calories for quick add. VoiceOver adjustable.
 - `TrendChart` — gray scale dots, monotone-smoothed accent trend line, 14% wash, hairline grid, optional goal line, end-dot. Drag to scrub with a tooltip and selection ticks. Legend + accessible summary.
 - `ListRow` / `GroupLabel` — Settings idiom: icon tile, title, subtitle, value / control / checkmark / chevron.
 - `SectionHeader` — 20pt title with a trailing note.
 - `Icon` — SF Symbol wrapper.
+- `SheetFooter` — the pinned action bar on a sheet; rides above the keyboard.
+- `QuickLogBar` — the tab bar's bottom accessory: “Log a meal” with Speak and Photo on every tab except Log (which has them in its card); two icons when minimised.
+- `RecordingBar` — what Log's composer becomes while listening: ✕ cancel, a live waveform with elapsed time, ✓ finish. No labels.
+- Log's composer has three states: empty (inset field + equal Speak and Photo buttons), listening (`RecordingBar`), and with text (clear ⓧ and an add-by-voice mic inside the field; full-width Review, or Review with AI over a tonal Review as heard).
+- Source badges — a 22 pt rounded square before an item's name: ✦ AI estimate (accent), pencil edited, person My Foods. Never a text tag among the nutrients.
+- Nutrient totals — macros (with color dots) and fiber / sugar / saturated fat / sodium share one type style; extra nutrients are a second row, not a footnote.
+- `PhotoScan` — the photo being estimated, with a sweep and named stages; errors offer Retry.
+- `ToastHost` — one short message above the tab bar, with an optional action (“Undo”). Mounted at the root.
 - `GlassButton` — capsule. Primary is accent-tinted Liquid Glass on iOS 26 (solid accent elsewhere) with a soft accent lift. Secondary is a white capsule — clear glass on a flat page has nothing to refract and reads as missing. One primary per screen.
 
 ## Motion and feedback
 
 Springs from `tokens.springs` for rings, bars, and segmented thumbs; all check `useReducedMotion()`. Haptics: selection on day / segment / step / scrub, light-medium impact on buttons, success on log and weigh-in, error on a failed estimate. Delight moments are tied to the job: the staged "Finding foods → Estimating portions → Adding up macros" scan, and the check-mark confirmation when a meal is logged.
 
+## Sheets
+
+Review, Search, and the food editor are page sheets (`presentation: 'modal'`) with the native header (glass close, or Cancel/Save) and, for Search, the native search field. Memoise their `Stack.Screen` options. Confirming closes the sheet and shows a toast with Undo — no full-screen celebration. Don't use `formSheet` for a sheet with a pinned footer — react-native-screens resizes its first ScrollView to the whole sheet.
+
 ## Layout
 
 Horizontal gutter `spacing.gutter` (20). Scroll views use `contentInsetAdjustmentBehavior="automatic"` so content starts under the large title and clears the tab bar — no manual top/bottom inset math. Card stacks use 10–12pt gaps; sections open with `SectionHeader` (24pt above).
+
+## Copy
+
+Labels name things; they don't explain them. No hints under controls, no “tap to…”, no instructions a person discovers by using the screen, and nothing about adding an AI key once one is saved. Errors say what happened and what to do, in one line.
 
 ## Anti-patterns
 
