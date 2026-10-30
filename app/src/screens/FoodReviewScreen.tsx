@@ -12,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassButton } from '../components/glass';
+import { MacroMarks } from '../components/ui/MacroMarks';
 import { Panel } from '../components/ui/Panel';
 import { TextButton } from '../components/ui/TextButton';
 import { colors, radius, spacing, typography } from '../theme';
@@ -139,17 +140,14 @@ export function FoodReviewScreen() {
                 <TextInput
                   style={styles.portionInput}
                   keyboardType="number-pad"
-                  keyboardAppearance="dark"
+                  keyboardAppearance="light"
                   defaultValue={String(item.portionGrams)}
                   accessibilityLabel={`${item.name} portion in grams`}
                   onEndEditing={(e) => adjustPortion(item.id, Number(e.nativeEvent.text))}
                 />
                 <Text style={styles.grams}>g</Text>
-                <Text style={styles.macros}>
-                  {item.macros.calories} kcal · {item.macros.proteinG}p · {item.macros.carbsG}c ·{' '}
-                  {item.macros.fatG}f
-                </Text>
               </View>
+              <MacroMarks macros={item.macros} />
             </View>
           ))}
           <View style={styles.total}>
@@ -190,9 +188,9 @@ const styles = StyleSheet.create({
   },
   photo: {
     width: '100%',
-    height: 200,
+    height: 220,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceRaised,
   },
   lede: {
     ...typography.body,
@@ -262,12 +260,6 @@ const styles = StyleSheet.create({
   grams: {
     ...typography.caption,
     color: colors.textTertiary,
-  },
-  macros: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    flex: 1,
-    textAlign: 'right',
   },
   total: {
     flexDirection: 'row',

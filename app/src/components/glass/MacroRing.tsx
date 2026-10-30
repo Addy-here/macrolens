@@ -24,6 +24,7 @@ interface MacroRingProps {
    *  but the raw ratio can still be shown in the label if desired. */
   progress: number;
   color: string;
+  trackColor?: string;
   size?: number;
   strokeWidth?: number;
   label?: string;
@@ -39,6 +40,7 @@ interface MacroRingProps {
 export function MacroRing({
   progress,
   color,
+  trackColor,
   size = 120,
   strokeWidth = 12,
   label,
@@ -83,7 +85,7 @@ export function MacroRing({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={colors.track}
+          stroke={trackColor ?? colors.track}
           strokeWidth={strokeWidth}
           fill="none"
         />

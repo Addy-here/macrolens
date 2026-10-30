@@ -1,42 +1,42 @@
 /**
- * Warm, dark, paper-and-candle palette.
- * One accent. Macro colors stay distinct so a glance still means the same thing.
+ * Light log. Orange is the action. Four colors are the nutrients.
+ * See docs/DESIGN-SYSTEM.md.
  */
 
 export const colors = {
-  background: '#0E0D0B',
-  backgroundElevated: '#161411',
-  surface: '#1C1916',
-  surfaceRaised: '#26221D',
+  background: '#F2F2F7',
+  backgroundElevated: '#FFFFFF',
+  surface: '#FFFFFF',
+  surfaceRaised: '#F2F2F7',
 
-  glassLight: 'rgba(243, 238, 230, 0.06)',
-  glassMedium: 'rgba(243, 238, 230, 0.10)',
-  glassStrong: 'rgba(243, 238, 230, 0.16)',
-  glassBorder: 'rgba(243, 238, 230, 0.12)',
-  glassHighlight: 'rgba(255, 236, 210, 0.28)',
-  hairline: 'rgba(243, 238, 230, 0.12)',
-  track: 'rgba(243, 238, 230, 0.16)',
+  glassLight: 'rgba(255, 255, 255, 0.55)',
+  glassMedium: 'rgba(255, 255, 255, 0.72)',
+  glassStrong: 'rgba(255, 255, 255, 0.88)',
+  glassBorder: 'rgba(60, 60, 67, 0.12)',
+  glassHighlight: 'rgba(255, 255, 255, 0.9)',
+  hairline: 'rgba(60, 60, 67, 0.12)',
+  track: 'rgba(60, 60, 67, 0.12)',
 
-  textPrimary: '#F3EEE6',
-  textSecondary: 'rgba(243, 238, 230, 0.64)',
-  textTertiary: 'rgba(243, 238, 230, 0.40)',
+  textPrimary: '#1C1C1E',
+  textSecondary: 'rgba(60, 60, 67, 0.64)',
+  textTertiary: 'rgba(60, 60, 67, 0.36)',
 
-  accent: '#E7A15A',
-  accentSecondary: '#C9843E',
-  accentSoft: 'rgba(231, 161, 90, 0.18)',
-  dangerSoft: 'rgba(211, 107, 95, 0.18)',
-  onAccent: '#1C140C',
+  accent: '#FF5C1A',
+  accentSecondary: '#E24E12',
+  accentSoft: 'rgba(255, 92, 26, 0.14)',
+  onAccent: '#FFFFFF',
 
-  protein: '#D9896A',
-  carbs: '#6AA8C4',
-  fat: '#C9B458',
-  calories: '#F3EEE6',
+  calories: '#FF4B4B',
+  protein: '#FF9F0A',
+  carbs: '#0A84FF',
+  fat: '#34C759',
 
-  success: '#8FB596',
-  warning: '#C9B458',
-  danger: '#D36B5F',
+  success: '#34C759',
+  warning: '#FF9F0A',
+  danger: '#FF3B30',
+  dangerSoft: 'rgba(255, 59, 48, 0.12)',
 
-  scrim: 'rgba(14, 13, 11, 0.55)',
+  scrim: 'rgba(0, 0, 0, 0.35)',
 } as const;
 
 export type ThemeColors = typeof colors;

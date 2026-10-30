@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AiKeySection } from '../components/AiKeySection';
 import { GlassButton } from '../components/glass';
@@ -11,12 +12,12 @@ import { usePlanStore } from '../store/usePlanStore';
 import { calculateInitialPlan } from '../utils/planCalculator';
 import type { ActivityLevel, UserProfile } from '../types';
 
-const ACTIVITY_LEVELS: { key: ActivityLevel; label: string; detail: string }[] = [
-  { key: 'sedentary', label: 'Sedentary', detail: 'Desk, little walking' },
-  { key: 'light', label: 'Lightly active', detail: 'Walking most days' },
-  { key: 'moderate', label: 'Moderately active', detail: 'Exercise a few times a week' },
-  { key: 'active', label: 'Active', detail: 'Hard sessions most days' },
-  { key: 'very-active', label: 'Very active', detail: 'Training twice a day' },
+const ACTIVITY_LEVELS: { key: ActivityLevel; label: string }[] = [
+  { key: 'sedentary', label: 'Sedentary' },
+  { key: 'light', label: 'Lightly active' },
+  { key: 'moderate', label: 'Moderately active' },
+  { key: 'active', label: 'Active' },
+  { key: 'very-active', label: 'Very active' },
 ];
 
 const BLANK_PROFILE: UserProfile = {
@@ -39,19 +40,6 @@ export function SettingsScreen() {
 
   const [draft, setDraft] = useState<UserProfile>(profile ?? BLANK_PROFILE);
   const [saved, setSaved] = useState(false);
-
-  const bmiPreview = useMemo(() => {
-    const heightM = draft.heightCm / 100;
-    if (heightM <= 0) return null;
-    return (draft.startingWeightKg / (heightM * heightM)).toFixed(1);
-  }, [draft.heightCm, draft.startingWeightKg]);
-
-  const weeksToGoal = useMemo(() => {
-    if (draft.targetRateKgPerWeek === 0) return null;
-    const delta = draft.goalWeightKg - draft.startingWeightKg;
-    const weeks = delta / draft.targetRateKgPerWeek;
-    return weeks > 0 ? Math.round(weeks) : null;
-  }, [draft.startingWeightKg, draft.goalWeightKg, draft.targetRateKgPerWeek]);
 
   function patch<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -77,7 +65,7 @@ export function SettingsScreen() {
           paddingBottom: insets.bottom + spacing.xxl + spacing.xl,
         }}
       >
-        <ScreenHeader title="Settings" detail="Goals set this week’s calories. Keys stay on this iPhone." />
+        <ScreenHeader title="Settings" />
 
         <AiKeySection />
 
@@ -97,7 +85,6 @@ export function SettingsScreen() {
             onChange={(v) => patch('goalWeightKg', v)}
             last
           />
-          {bmiPreview ? <Text style={styles.footerNote}>BMI {bmiPreview}</Text> : null}
         </Panel>
 
         <Text style={styles.groupTitle}>Pace</Text>
@@ -109,11 +96,6 @@ export function SettingsScreen() {
             onChange={(v) => patch('targetRateKgPerWeek', v)}
             last
           />
-          <Text style={styles.footerNote}>
-            {weeksToGoal !== null
-              ? `About ${weeksToGoal} week${weeksToGoal === 1 ? '' : 's'} at this pace. A steady range is −1.0 to −0.25 kg.`
-              : 'Negative loses weight. A steady range is −1.0 to −0.25 kg a week.'}
-          </Text>
         </Panel>
 
         <Text style={styles.groupTitle}>Activity</Text>
@@ -128,11 +110,17 @@ export function SettingsScreen() {
                 onPress={() => patch('activityLevel', level.key)}
                 style={[styles.choice, index > 0 && styles.divider]}
               >
-                <View style={styles.choiceCopy}>
-                  <Text style={[styles.choiceLabel, active && styles.choiceLabelOn]}>{level.label}</Text>
-                  <Text style={styles.choiceDetail}>{level.detail}</Text>
-                </View>
-                <View style={[styles.mark, active && styles.markOn]} />
+                {active && Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
+                  <GlassView
+                    pointerEvents="none"
+                    style={styles.choiceGlass}
+                    glassEffectStyle="regular"
+                    tintColor={colors.accentSoft}
+                    isInteractive
+                    colorScheme="light"
+                  />
+                ) : null}
+                <Text style={[styles.choiceLabel, active && styles.choiceLabelOn]}>{level.label}</Text>
               </Pressable>
             );
           })}
@@ -166,7 +154,7 @@ function NumberRow({
       <TextInput
         style={styles.input}
         keyboardType="decimal-pad"
-        keyboardAppearance="dark"
+        keyboardAppearance="light"
         defaultValue={String(value)}
         accessibilityLabel={`${label} in ${unit}`}
         onEndEditing={(e) => {
@@ -185,9 +173,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   groupTitle: {
-    ...typography.eyebrow,
+    ...typography.caption,
     color: colors.textTertiary,
-    textTransform: 'uppercase',
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
     marginLeft: spacing.xs,
@@ -219,22 +206,14 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     width: 28,
   },
-  footerNote: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-  },
   choice: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
+    overflow: 'hidden',
   },
-  choiceCopy: {
-    flex: 1,
-    gap: 2,
+  choiceGlass: {
+    ...StyleSheet.absoluteFill,
   },
   choiceLabel: {
     ...typography.body,
@@ -242,21 +221,7 @@ const styles = StyleSheet.create({
   },
   choiceLabelOn: {
     color: colors.accent,
-  },
-  choiceDetail: {
-    ...typography.caption,
-    color: colors.textTertiary,
-  },
-  mark: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-  },
-  markOn: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    fontWeight: '600',
   },
   save: {
     marginTop: spacing.xl,

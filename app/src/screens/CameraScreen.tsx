@@ -109,13 +109,7 @@ export function CameraScreen() {
     }
   };
 
-  const primaryLabel = !photo
-    ? 'Take a photo'
-    : canReview
-      ? 'Review estimate'
-      : isAnalyzing
-        ? 'Reading the plate…'
-        : 'Analyze';
+  const primaryLabel = !photo ? 'Take Photo' : canReview ? 'Review' : isAnalyzing ? 'Analyzing…' : 'Analyze';
 
   const onPrimary = () => {
     if (!photo) {
@@ -132,12 +126,7 @@ export function CameraScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + spacing.sm }]}>
       <View style={styles.header}>
-        <ScreenHeader
-          eyebrow="Log"
-          uppercase
-          title={photo ? 'This plate' : 'A new meal'}
-          detail={photo ? undefined : 'You’ll check the estimate before anything is saved.'}
-        />
+        <ScreenHeader title="Log" detail="Review the estimate before it’s saved." />
       </View>
 
       {photo ? (
@@ -146,18 +135,19 @@ export function CameraScreen() {
           {isAnalyzing ? (
             <View style={styles.analyzing}>
               <ActivityIndicator color={colors.accent} />
-              <Text style={styles.analyzingText}>Reading the plate…</Text>
+              <Text style={styles.analyzingText}>Analyzing…</Text>
             </View>
           ) : null}
         </View>
       ) : (
-        <View style={styles.invitation}>
-          <View style={styles.mark}>
+        <View style={styles.stage}>
+          <View style={styles.placeholder}>
             {Platform.OS === 'ios' ? (
-              <SymbolView name="camera.fill" tintColor={colors.accent} size={34} />
+              <SymbolView name="camera.fill" tintColor={colors.textTertiary} size={28} />
             ) : (
               <View style={styles.markDot} />
             )}
+            <Text style={styles.placeholderText}>No photo</Text>
           </View>
         </View>
       )}
@@ -177,7 +167,7 @@ export function CameraScreen() {
           style={styles.primary}
         />
         <TextButton
-          label={photo ? 'Change photo' : 'Choose from library'}
+          label={photo ? 'Change Photo' : 'Photo Library'}
           onPress={() => {
             if (!photo) {
               void takePhoto('library');
@@ -201,7 +191,7 @@ export function CameraScreen() {
           disabled={isAnalyzing}
         />
         {!hasKey ? (
-          <TextButton label="Add your API key" onPress={() => router.push('/settings')} tone="muted" />
+          <TextButton label="Add API Key" onPress={() => router.push('/settings')} tone="muted" />
         ) : null}
       </View>
     </View>
@@ -228,19 +218,15 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  invitation: {
+  placeholder: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: spacing.xxl,
+    gap: spacing.sm,
   },
-  mark: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accentSoft,
+  placeholderText: {
+    ...typography.body,
+    color: colors.textTertiary,
   },
   markDot: {
     width: 12,

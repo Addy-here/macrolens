@@ -13,9 +13,9 @@ export const spacing = {
 } as const;
 
 export const radius = {
-  sm: 12,
-  md: 22,
-  lg: 28,
+  sm: 10,
+  md: 16,
+  lg: 22,
   pill: 999,
 } as const;
 
@@ -31,9 +31,9 @@ export const typography = {
     letterSpacing: 0.6,
   },
   hero: {
-    fontSize: 56,
+    fontSize: 34,
     fontWeight: '700' as const,
-    letterSpacing: -1.8,
+    letterSpacing: -0.8,
     fontVariant: ['tabular-nums'] as ('tabular-nums')[],
   },
   statLarge: {

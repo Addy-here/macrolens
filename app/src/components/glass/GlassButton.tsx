@@ -24,8 +24,7 @@ interface GlassButtonProps {
 }
 
 /**
- * Primary = accent gradient fill (sparingly used — one or two per screen,
- * per docs/DESIGN-SYSTEM.md). Secondary = glass fill, for everything else.
+ * One filled action per screen. Secondary stays a system material.
  */
 export function GlassButton({
   label,
@@ -46,6 +45,7 @@ export function GlassButton({
   };
 
   if (variant === 'primary') {
+    const glass = !disabled && Platform.OS === 'ios' && isLiquidGlassAvailable();
     return (
       <Pressable
         {...accessibility}
@@ -53,11 +53,23 @@ export function GlassButton({
         disabled={disabled}
         style={[styles.shadowWrap, style]}
       >
-        <View style={[styles.base, disabled ? styles.primaryOff : styles.primary]}>
-          <Text style={[styles.label, { color: disabled ? colors.textTertiary : colors.onAccent }]}>
-            {label}
-          </Text>
-        </View>
+        {glass ? (
+          <GlassView
+            style={styles.base}
+            glassEffectStyle="regular"
+            tintColor={colors.accent}
+            isInteractive
+            colorScheme="light"
+          >
+            <Text style={[styles.label, { color: colors.onAccent }]}>{label}</Text>
+          </GlassView>
+        ) : (
+          <View style={[styles.base, disabled ? styles.primaryOff : styles.primary]}>
+            <Text style={[styles.label, { color: disabled ? colors.textTertiary : colors.onAccent }]}>
+              {label}
+            </Text>
+          </View>
+        )}
       </Pressable>
     );
   }
@@ -76,7 +88,7 @@ export function GlassButton({
           </Text>
         </GlassView>
       ) : (
-        <BlurView intensity={40} tint="dark" style={styles.base}>
+        <BlurView intensity={40} tint="light" style={styles.base}>
           <Text style={[styles.label, { color: colors.textPrimary }]}>
             {label}
           </Text>
@@ -89,9 +101,9 @@ export function GlassButton({
 const styles = StyleSheet.create({
   shadowWrap: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
   },
   base: {
     minHeight: 52,

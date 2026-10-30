@@ -3,7 +3,9 @@ import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Panel } from '../components/ui/Panel';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
 import { TextButton } from '../components/ui/TextButton';
+import { WeightLine } from '../components/ui/WeightLine';
 import { colors, radius, spacing, typography } from '../theme';
 import { usePlanStore } from '../store/usePlanStore';
 import { createId } from '../utils/id';
@@ -34,28 +36,24 @@ export function PlanScreen() {
       style={[styles.screen, { paddingTop: insets.top + spacing.sm }]}
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
     >
-      <Text style={styles.eyebrow}>This week</Text>
+      <ScreenHeader title="This week" />
       {plan ? (
-        <>
-          <View style={styles.heroRow}>
-            <Text style={styles.hero}>{plan.targetCalories.toLocaleString()}</Text>
-            <Text style={styles.heroUnit}>kcal{'\n'}a day</Text>
-          </View>
+        <Panel>
+          <Text style={styles.hero}>{plan.targetCalories.toLocaleString()}</Text>
+          <Text style={styles.heroUnit}>kcal a day</Text>
           {plan.changeReason ? <Text style={styles.reason}>{plan.changeReason}</Text> : null}
-          <View style={styles.split}>
-            <Split label="Protein" value={`${plan.targetMacros.proteinG}g`} color={colors.protein} />
-            <Split label="Carbs" value={`${plan.targetMacros.carbsG}g`} color={colors.carbs} />
-            <Split label="Fat" value={`${plan.targetMacros.fatG}g`} color={colors.fat} />
+          <View style={styles.macroList}>
+            <MacroLine label="Protein" value={`${plan.targetMacros.proteinG} g`} color={colors.protein} />
+            <MacroLine label="Carbs" value={`${plan.targetMacros.carbsG} g`} color={colors.carbs} />
+            <MacroLine label="Fat" value={`${plan.targetMacros.fatG} g`} color={colors.fat} />
           </View>
-        </>
+        </Panel>
       ) : (
-        <View style={styles.unset}>
+        <Panel>
           <Text style={styles.unsetTitle}>No target yet</Text>
-          <Text style={styles.reason}>
-            Save your height, weight, and pace. This week’s calories are calculated from that.
-          </Text>
-          <TextButton label="Set your goals" onPress={() => router.push('/settings')} />
-        </View>
+          <Text style={styles.reason}>Height, weight, and pace in Settings set this number.</Text>
+          <TextButton label="Set goals" onPress={() => router.push('/settings')} />
+        </Panel>
       )}
 
       <Text style={styles.section}>Weight</Text>
@@ -65,16 +63,17 @@ export function PlanScreen() {
           {trendWeightKg ? `${trendWeightKg.toFixed(1)} kg` : '—'}
         </Text>
         <Text style={styles.trendHint}>
-          {weightHistory.length > 0
-            ? `Smoothed from ${weightHistory.length} weigh-in${weightHistory.length === 1 ? '' : 's'}.`
+          {weightHistory.length > 1
+            ? `Smoothed from ${weightHistory.length} weigh-ins.`
             : 'One reading is a weigh-in. A few of them become a trend.'}
         </Text>
+        <WeightLine values={weightHistory.map((entry) => entry.weightKg)} />
         <View style={styles.weightRow}>
           <TextInput
             value={weightDraft}
             onChangeText={setWeightDraft}
             keyboardType="decimal-pad"
-            keyboardAppearance="dark"
+            keyboardAppearance="light"
             placeholder="kg"
             placeholderTextColor={colors.textTertiary}
             accessibilityLabel="Today’s weight in kilograms"
@@ -87,11 +86,11 @@ export function PlanScreen() {
   );
 }
 
-function Split({ label, value, color }: { label: string; value: string; color: string }) {
+function MacroLine({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <View style={styles.splitItem}>
-      <Text style={[styles.splitValue, { color }]}>{value}</Text>
-      <Text style={styles.splitLabel}>{label}</Text>
+    <View style={styles.macroLine}>
+      <Text style={[styles.macroLabel, { color }]}>{label}</Text>
+      <Text style={styles.macroValue}>{value}</Text>
     </View>
   );
 }
@@ -104,65 +103,46 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
   },
-  eyebrow: {
-    ...typography.eyebrow,
-    color: colors.textTertiary,
-    textTransform: 'uppercase',
-    marginBottom: spacing.sm,
-  },
-  heroRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.md,
-  },
   hero: {
     ...typography.hero,
     color: colors.textPrimary,
   },
   heroUnit: {
-    ...typography.bodyEmphasized,
+    ...typography.body,
     color: colors.textSecondary,
-    marginBottom: spacing.sm,
+    marginTop: spacing.xs,
   },
   reason: {
     ...typography.body,
     color: colors.textSecondary,
     marginTop: spacing.md,
   },
-  split: {
-    flexDirection: 'row',
-    marginTop: spacing.xl,
+  macroList: {
+    marginTop: spacing.lg,
     gap: spacing.sm,
   },
-  splitItem: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.hairline,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    gap: spacing.xs,
+  macroLine: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
   },
-  splitValue: {
-    ...typography.statMedium,
-  },
-  splitLabel: {
+  macroLabel: {
     ...typography.caption,
-    color: colors.textTertiary,
   },
-  unset: {
-    gap: spacing.xs,
+  macroValue: {
+    ...typography.bodyEmphasized,
+    color: colors.textPrimary,
   },
   unsetTitle: {
-    ...typography.largeTitle,
+    ...typography.title,
     color: colors.textPrimary,
   },
   section: {
-    ...typography.title,
-    color: colors.textPrimary,
-    marginTop: spacing.xl,
-    marginBottom: spacing.md,
+    ...typography.caption,
+    color: colors.textTertiary,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
   },
   trendLabel: {
     ...typography.caption,

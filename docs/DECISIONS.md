@@ -339,3 +339,67 @@ refreshes the starter plan.
 exists (rejected — the user wants the feature usable now). Embed one
 shared API key (rejected — it would be extractable, which the original
 ADR forbids).
+
+---
+
+## 2026-10-28 — Interface is a system list, not a branded poster
+
+**Decision:** Supersedes the “glass card on every row” direction in the
+2026-10-28 UI-library ADR and the coral-gradient notes in the old design
+system. Screens are inset grouped lists on black. The native tab bar stays
+Liquid Glass and is not redrawn. Blur is not applied to ordinary rows.
+The action tint is system blue. Protein, carbs, and fat keep their own
+colors. Passing a calorie target does not turn type red. Rules live in
+`docs/DESIGN-SYSTEM.md` and `.cursor/skills/macrolens-design/SKILL.md`.
+
+**Why:** The warm dark theme (brown canvas, apricot on every control,
+glow behind the calorie number, slogan headers) read as a generic
+generated skin. Foodnoms, MacroFactor, Fitness, and Gentler Streak share
+a different bar: the log is the product, numbers are adherence-neutral,
+and chrome should be the system’s. Those rules are fitted to our four
+jobs — today’s meals, a photo that is reviewed before save, this week’s
+target, and settings — rather than copied as layouts.
+
+**Alternatives considered:** Keep refining the candlelit palette (rejected
+— more of the same skin). Clone Foodnoms’ navigation (rejected — our log
+is a photo task, not their search-first diary).
+
+---
+
+## 2026-10-28 — Light food log, after looking at the store screenshots
+
+**Decision:** Supersedes the same-day “system list on black” entry. The
+interface is light: grouped gray page, white cards, orange for actions
+and the weight line, and four fixed nutrient colors on goal rings and on
+each food. Today is a week strip, a 2×2 of rings, and breakfast / lunch /
+dinner / snack. Log frames the photo. Plan draws a weight line once two
+weigh-ins exist. `userInterfaceStyle` is light so the system tab bar
+matches. Rules are in `docs/DESIGN-SYSTEM.md`.
+
+**Why:** The black form was built from written descriptions of Foodnoms,
+MacroFactor, and Gentler Streak. Their App Store screenshots show a
+different object: a light log with a week, four colored rings, a macro
+mark on every food, and a chart. That structure is what was missing.
+
+**Alternatives considered:** Stay on the black list and only add color
+(rejected — the screenshots that read as finished are light). Clone
+Foodnoms’ search, library, and recipes (rejected — we do not have that
+database, and the photo review is the logging path).
+
+---
+
+## 2026-10-28 — Gemini, a chosen model, and glass on the selected day
+
+**Decision:** Settings asks for a provider, a model, and the user’s own
+key. Gemini is a provider, stored the same way as OpenAI and Anthropic
+(`macrolens.ai.key.gemini`), and the chosen model id is stored per
+provider (`macrolens.ai.model.<provider>`). Photo estimates call
+`generateContent` with that model and `x-goog-api-key`. The selected
+calendar day, the primary button, and a selected settings row use
+`GlassView` when Liquid Glass is available. The tab bar is still the
+system pill.
+
+**Why:** The settings form explained more than it asked. The person
+using the app has a Gemini key and needs to pick the model that key
+should call. The solid orange day was a drawn control on a screen that
+otherwise uses the system glass.

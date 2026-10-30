@@ -19,8 +19,6 @@ const styles = StyleSheet.create({
   panel: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.hairline,
     overflow: 'hidden',
   },
   padded: {

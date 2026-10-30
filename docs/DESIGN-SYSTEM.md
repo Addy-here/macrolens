@@ -1,96 +1,49 @@
-# Macrolens — Design System: "Liquid Glass"
+# Macrolens — Design system
 
-Visual language spec for the glass UI. This is what every component in
-`src/components/glass/` and every screen should conform to.
+Light food log. The local skill `.cursor/skills/macrolens-design/SKILL.md` points here before UI changes.
+
+Taken from the App Store screens of Foodnoms, MacroFactor, and Gentler Streak, then fitted to four jobs: today’s meals, a photo that is reviewed before save, this week’s target, and settings. Store marketing frames are not part of the app.
 
 ## Principles
 
-1. **Depth through light, not borders.** Surfaces are distinguished by
-   blur + subtle luminance, not hard outlines. A 1px border is allowed only
-   as a faint highlight (see "Edge highlight" below), never a flat solid
-   line.
-2. **Dark-first.** Base canvas is near-black (`#0A0A0C`). Glass surfaces
-   are translucent light layered on top, so they read as "floating" over
-   the dark canvas — this is what makes blur read as *glass* rather than
-   *frosted paper*.
-3. **One accent, used sparingly.** Coral→amber gradient (`accent` /
-   `accentSecondary` in `theme/colors.ts`) for primary actions and the
-   calorie ring. Macro rings (protein/carbs/fat) get their own fixed
-   colors so they're always identifiable at a glance across screens.
-4. **Motion is physical, not linear.** Use `react-native-reanimated`
-   spring configs (not `Easing.linear`/`timing`) for anything that moves —
-   sheet presentations, tab transitions, the macro rings filling. Target
-   feel: iOS's own spring curves (damping ~15-20, stiffness ~150-200 as a
-   starting point, tune by feel).
+1. **The day is a log.** Today has a week strip, four goal rings, and meals grouped as breakfast, lunch, dinner, and snack. An empty day still shows that skeleton.
+2. **Light page, white cards.** Background is grouped gray. Cells are white, radius 16. The system tab bar is the only glass, and it is light with the page.
+3. **Orange is the action.** Selected day, filled button, text action, tab tint, and the weight line use `colors.accent`.
+4. **Four nutrient colors, used twice.** Calories, protein, carbs, and fat keep fixed colors on the rings and again as marks on every food. They are not button colors.
+5. **Neutral numbers.** “Left” and “past” use the same type color. Passing a target does not turn red.
+6. **One sentence on Plan.** The weekly calories, why they moved, then the weight line once there are two weigh-ins.
+7. **The photo is a frame.** Log is a picture well. Review shows that picture, portions, the macro marks, and one Confirm button.
 
-## Core surface: the Glass Card
+## Type
 
-Built from, in z-order:
+System font. Large title on a tab root. Body for food names. Caption for portions, weekdays, and macro marks. Figures are tabular.
 
-1. `BlurView` (from `expo-blur`), `intensity` 40-60 on dark mode, `tint="dark"`.
-2. A translucent fill on top of the blur — `colors.glassLight` /
-   `glassMedium` / `glassStrong` depending on elevation (modals, floating
-   action buttons = strongest fill since they need to stand out most).
-3. A **1px edge highlight**: `colors.glassBorder` as the base border, with
-   an extra lighter gradient stroke (`glassHighlight` → transparent) along
-   just the *top* edge to simulate a light source from above. This is the
-   single most important detail that sells "glass" vs. "grey box."
-4. Border radius: 20-28px for cards, 16px for small chips/buttons, full
-   pill (999) for tab bars and primary CTAs.
-5. Shadow: soft, large-radius, low-opacity black shadow *beneath* the card
-   (`shadowRadius` 24+, `shadowOpacity` 0.25-0.35) to lift it off the
-   canvas — glass without a shadow looks flat/pasted-on.
+## Color
 
-## Typography
+Tokens in `app/src/theme/colors.ts`.
 
-- Primary: system font (`San Francisco` via RN's default on iOS — do not
-  substitute a webfont, the system font is part of the iOS-native feel).
-- Scale: Large Title 34/Bold for screen headers, Title 22/Semibold for
-  section headers, Body 17/Regular for content, Caption 13/Medium for
-  metadata (timestamps, units).
-- Numbers (calories, macros, weight) always use a slightly heavier weight
-  than surrounding text and tabular/monospaced figures where the layout is
-  a list of numbers (so digits align) — standard nutrition-app convention.
+- Page `#F2F2F7`. Card `#FFFFFF`. Inset field `#F2F2F7`.
+- Label `#1C1C1E`. Secondary `rgba(60,60,67,0.64)`. Tertiary `rgba(60,60,67,0.36)`.
+- Accent `#FF5C1A`. On accent, white.
+- Calories `#FF4B4B`. Protein `#FF9F0A`. Carbs `#0A84FF`. Fat `#34C759`.
+- Danger is a failed action (permission, rejected key), never a meal that passed its target.
 
-## Color usage
+## Components
 
-See `theme/colors.ts` for the literal token values. Rules for *using* them:
+- `WeekStrip` — Sunday-start week. The selected day is Liquid Glass tinted with the accent when the system glass API is available.
+- `GoalTile` — name, “left” or “past”, small ring.
+- `MacroMarks` — four dots and numbers, same colors as the rings.
+- `WeightLine` — orange polyline. Renders nothing until there are two values.
+- `Panel`, `ScreenHeader`, `GlassButton`, `TextButton` — as before. One filled button per screen.
 
-- Macro rings: protein = coral (`colors.protein`), carbs = sky blue
-  (`colors.carbs`), fat = amber (`colors.fat`). These three are fixed and
-  never reassigned — users build muscle memory for "blue = carbs."
-- Calorie ring/number: neutral white/`textPrimary`, not colored — it's the
-  "total," the three macros are the "parts," visually distinct from them.
-- Success (`colors.success`) only for positive trend confirmations (e.g.
-  "on track this week"). Warning/danger reserved for the adaptive-plan
-  screen's "you're behind pace" messaging — never used for routine UI.
+## Layout
 
-## Key components to build (src/components/glass/)
+Horizontal inset `spacing.lg`. Scroll content and pinned footers end at `insets.bottom + spacing.xxl` so the last control clears the tab bar.
 
-| Component | Notes |
-|---|---|
-| `GlassCard` | The base primitive described above; everything else wraps it. |
-| `GlassButton` | Primary (accent-gradient fill) and secondary (glass fill) variants. |
-| `GlassTabBar` | Bottom tab bar, pill-shaped glass, floats above content with margin, not edge-to-edge. |
-| `MacroRing` | Animated circular progress ring, supports the 4-ring stack (calories center, macros around or as separate rings per screen — finalize in-screen when built). |
-| `GlassSheet` | Bottom-sheet/modal surface for the food-review screen — this is the single most-used surface in the app (review-before-save flow), deserves its own polish pass. |
-| `GlassInput` | Text input with glass fill, used sparingly (most interaction is tap/slider, not typing, to keep logging fast). |
+## Anti-patterns
 
-## Reference inspiration (not to copy pixel-for-pixel, but calibrate against)
-
-- iOS 18/26 system UI "Liquid Glass" redesign — Control Center, widgets.
-- Apple Fitness app's ring UI for the macro-ring component specifically.
-- MacroFactor's "Plate" review screen for layout/interaction pattern of the
-  food-review-before-save flow (not visual style — MacroFactor is flat/
-  light-mode, we are glass/dark-mode).
-
-## Anti-patterns (don't do this)
-
-- Hardcoding a color/spacing value inline in a screen component instead of
-  importing from `theme/`.
-- Flat, opaque card backgrounds with a drop shadow but no blur — that's
-  "material design card," not glass.
-- Overusing the accent color — if more than ~2 elements per screen are
-  accent-colored, it's not an accent anymore.
-- Linear/`Easing.out` transitions on anything the user's finger just
-  touched (buttons, sheets, drags) — must feel spring-driven.
+- A black canvas with one ring and a slogan header.
+- Icon inside a tinted circle as an empty state.
+- Glow, gradient fill, or a mascot.
+- Red type because a target was passed.
+- A custom pill instead of `NativeTabs`.

@@ -1,6 +1,6 @@
 import type { FoodItem, Micros } from '../types';
 import { createId } from '../utils/id';
-import { providerModel, readSelectedAiKey, type AiProvider } from './aiKey';
+import { readSelectedAiKey, type AiProvider } from './aiKey';
 
 const PROMPT = `You estimate food in a photo for a nutrition log.
 Reply with JSON only, no markdown, in this shape:
@@ -27,85 +27,32 @@ export async function analyzeFoodPhoto(input: {
     throw new VisionError('Add your API key in Settings before analyzing a photo.');
   }
 
-  const raw = await requestEstimate(selected.provider, selected.apiKey, input);
+  const raw = await requestEstimate(selected.provider, selected.model, selected.apiKey, input);
   return parseFoodItems(raw);
 }
 
 async function requestEstimate(
   provider: AiProvider,
+  model: string,
   apiKey: string,
   input: { base64: string; mimeType: string },
 ) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 45000);
   try {
-    const response =
-      provider === 'openai'
-        ? await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            signal: controller.signal,
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: providerModel(provider),
-              response_format: { type: 'json_object' },
-              messages: [
-                {
-                  role: 'user',
-                  content: [
-                    { type: 'text', text: PROMPT },
-                    {
-                      type: 'image_url',
-                      image_url: {
-                        url: `data:${input.mimeType};base64,${input.base64}`,
-                      },
-                    },
-                  ],
-                },
-              ],
-            }),
-          })
-        : await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            signal: controller.signal,
-            headers: {
-              'x-api-key': apiKey,
-              'anthropic-version': '2023-06-01',
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: providerModel(provider),
-              max_tokens: 1500,
-              messages: [
-                {
-                  role: 'user',
-                  content: [
-                    {
-                      type: 'image',
-                      source: {
-                        type: 'base64',
-                        media_type: input.mimeType,
-                        data: input.base64,
-                      },
-                    },
-                    { type: 'text', text: PROMPT },
-                  ],
-                },
-              ],
-            }),
-          });
+    const response = await fetch(endpoint(provider, model), {
+      method: 'POST',
+      signal: controller.signal,
+      headers: headers(provider, apiKey),
+      body: JSON.stringify(body(provider, model, input)),
+    });
 
     if (!response.ok) {
       throw new VisionError(await failureMessage(response));
     }
 
     const data = await response.json();
-    const text =
-      provider === 'openai'
-        ? data?.choices?.[0]?.message?.content
-        : anthropicText(data);
+    const text = responseText(provider, data);
     if (typeof text !== 'string' || !text.trim()) {
       throw new VisionError('The model returned an empty estimate.');
     }
@@ -119,6 +66,86 @@ async function requestEstimate(
   } finally {
     clearTimeout(timer);
   }
+}
+
+function endpoint(provider: AiProvider, model: string) {
+  if (provider === 'openai') return 'https://api.openai.com/v1/chat/completions';
+  if (provider === 'anthropic') return 'https://api.anthropic.com/v1/messages';
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+}
+
+function headers(provider: AiProvider, apiKey: string): Record<string, string> {
+  if (provider === 'openai') {
+    return { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+  }
+  if (provider === 'anthropic') {
+    return {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'Content-Type': 'application/json',
+    };
+  }
+  return { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' };
+}
+
+function body(provider: AiProvider, model: string, input: { base64: string; mimeType: string }) {
+  if (provider === 'openai') {
+    return {
+      model,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: PROMPT },
+            { type: 'image_url', image_url: { url: `data:${input.mimeType};base64,${input.base64}` } },
+          ],
+        },
+      ],
+    };
+  }
+  if (provider === 'anthropic') {
+    return {
+      model,
+      max_tokens: 1500,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: input.mimeType, data: input.base64 } },
+            { type: 'text', text: PROMPT },
+          ],
+        },
+      ],
+    };
+  }
+  return {
+    contents: [
+      {
+        parts: [
+          { text: PROMPT },
+          { inlineData: { mimeType: input.mimeType, data: input.base64 } },
+        ],
+      },
+    ],
+    generationConfig: { responseMimeType: 'application/json' },
+  };
+}
+
+function responseText(provider: AiProvider, data: unknown) {
+  if (provider === 'openai') {
+    const content = (data as { choices?: { message?: { content?: string } }[] })?.choices?.[0]?.message?.content;
+    return content;
+  }
+  if (provider === 'anthropic') return anthropicText(data as { content?: { type?: string; text?: string }[] });
+  return geminiText(data);
+}
+
+function geminiText(data: unknown) {
+  const parts = (data as { candidates?: { content?: { parts?: { text?: string }[] } }[] })?.candidates?.[0]
+    ?.content?.parts;
+  if (!Array.isArray(parts)) return '';
+  return parts.map((part) => part.text ?? '').join('\n');
 }
 
 function anthropicText(data: { content?: { type?: string; text?: string }[] }) {

@@ -1,9 +1,12 @@
 import { create } from 'zustand';
 import {
+  defaultModel,
   deleteAiKey,
   readAiKey,
+  readAiModel,
   readAiProvider,
   writeAiKey,
+  writeAiModel,
   writeAiProvider,
   type AiProvider,
 } from '../services/aiKey';
@@ -11,28 +14,37 @@ import {
 interface AiKeyState {
   hydrated: boolean;
   provider: AiProvider;
+  model: string;
   hasKey: boolean;
   hydrate: () => Promise<void>;
   selectProvider: (provider: AiProvider) => Promise<void>;
+  selectModel: (model: string) => Promise<void>;
   saveKey: (apiKey: string) => Promise<void>;
   clearKey: () => Promise<void>;
 }
 
 export const useAiKeyStore = create<AiKeyState>((set, get) => ({
   hydrated: false,
-  provider: 'openai',
+  provider: 'gemini',
+  model: defaultModel('gemini'),
   hasKey: false,
 
   hydrate: async () => {
     const provider = await readAiProvider();
-    const apiKey = await readAiKey(provider);
-    set({ hydrated: true, provider, hasKey: Boolean(apiKey) });
+    const [model, apiKey] = await Promise.all([readAiModel(provider), readAiKey(provider)]);
+    set({ hydrated: true, provider, model, hasKey: Boolean(apiKey) });
   },
 
   selectProvider: async (provider) => {
     await writeAiProvider(provider);
-    const apiKey = await readAiKey(provider);
-    set({ provider, hasKey: Boolean(apiKey) });
+    const [model, apiKey] = await Promise.all([readAiModel(provider), readAiKey(provider)]);
+    set({ provider, model, hasKey: Boolean(apiKey) });
+  },
+
+  selectModel: async (model) => {
+    const provider = get().provider;
+    await writeAiModel(provider, model);
+    set({ model });
   },
 
   saveKey: async (apiKey) => {

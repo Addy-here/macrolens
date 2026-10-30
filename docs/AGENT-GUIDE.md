@@ -41,12 +41,11 @@ macrolens/
 - **Always read `docs/DECISIONS.md` before changing architecture.** If you
   make a new non-trivial technical choice (library, pattern, data model),
   append a new dated entry there — don't just make the choice silently.
-- **Design tokens live in `src/theme/`, never hardcode colors/spacing in
-  components.** The whole point of the glass aesthetic is consistency;
-  one-off magic numbers break it fast.
-- **Glass components wrap `expo-blur`'s `BlurView`.** Build reusable
-  primitives (`GlassCard`, `GlassButton`, `GlassTabBar`) in
-  `src/components/glass/` rather than inlining BlurView everywhere.
+- **Design tokens live in `src/theme/`.** Before changing screens, color,
+  or layout, read `.cursor/skills/macrolens-design/SKILL.md` and
+  `docs/DESIGN-SYSTEM.md`. Grouped lists on black, one tint for actions,
+  macro colors only for protein/carbs/fat. Do not put blur on every row.
+  The system tab bar is the only glass pill.
 - **State:** Zustand stores per domain (`useFoodLogStore`, `useUserStore`,
   `usePlanStore`). Keep stores thin — business logic (macro math, TDEE calc)
   lives in `src/utils/`, stores just hold state + call utils.

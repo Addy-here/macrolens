@@ -3,21 +3,17 @@ import { StyleSheet, Text, View } from 'react-native';
 import { colors, spacing, typography } from '../../theme';
 
 export function ScreenHeader({
-  eyebrow,
   title,
   detail,
-  uppercase = false,
 }: {
-  eyebrow?: string;
   title: string;
   detail?: string;
+  /** Kept so older call sites compile. Do not use it for new screens. */
+  eyebrow?: string;
   uppercase?: boolean;
 }) {
   return (
     <View style={styles.wrap}>
-      {eyebrow ? (
-        <Text style={[styles.eyebrow, uppercase && styles.uppercase]}>{eyebrow}</Text>
-      ) : null}
       <Text style={styles.title}>{title}</Text>
       {detail ? <Text style={styles.detail}>{detail}</Text> : null}
     </View>
@@ -27,22 +23,14 @@ export function ScreenHeader({
 const styles = StyleSheet.create({
   wrap: {
     gap: spacing.xs,
-    marginBottom: spacing.lg,
-  },
-  eyebrow: {
-    ...typography.eyebrow,
-    color: colors.textTertiary,
-  },
-  uppercase: {
-    textTransform: 'uppercase',
+    marginBottom: spacing.sm,
   },
   title: {
     ...typography.largeTitle,
     color: colors.textPrimary,
   },
   detail: {
-    ...typography.body,
+    ...typography.caption,
     color: colors.textSecondary,
-    marginTop: spacing.xs,
   },
 });

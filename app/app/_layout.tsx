@@ -7,7 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { colors } from '../src/theme';
 import { useAiKeyStore } from '../src/store/useAiKeyStore';
 
-Appearance.setColorScheme('dark');
+Appearance.setColorScheme('light');
 
 /**
  * Root layout for the whole app (expo-router). Wraps every route in the
@@ -47,7 +47,7 @@ export default function RootLayout() {
             }}
           />
         </Stack>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
