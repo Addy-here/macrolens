@@ -1,171 +1,201 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeIn, ZoomIn, useReducedMotion } from 'react-native-reanimated';
 import { GlassButton } from '../components/glass';
+import { Card } from '../components/ui/Card';
+import { Icon } from '../components/ui/Icon';
 import { MacroMarks } from '../components/ui/MacroMarks';
-import { Panel } from '../components/ui/Panel';
-import { TextButton } from '../components/ui/TextButton';
+import { SectionHeader } from '../components/ui/SectionHeader';
+import { Segmented } from '../components/ui/Segmented';
+import { Stepper } from '../components/ui/Stepper';
 import { colors, radius, spacing, typography } from '../theme';
 import { useFoodLogStore } from '../store/useFoodLogStore';
 import { useReviewStore } from '../store/useReviewStore';
 import { createId } from '../utils/id';
 import { sumMacros } from '../utils/macros';
-import type { FoodItem, FoodLogEntry } from '../types';
-
-const MEAL_TYPES: { key: FoodLogEntry['mealType']; label: string }[] = [
-  { key: 'breakfast', label: 'Breakfast' },
-  { key: 'lunch', label: 'Lunch' },
-  { key: 'dinner', label: 'Dinner' },
-  { key: 'snack', label: 'Snack' },
-];
-
-function suggestedMeal(date = new Date()): FoodLogEntry['mealType'] {
-  const hour = date.getHours();
-  if (hour < 10) return 'breakfast';
-  if (hour < 15) return 'lunch';
-  if (hour < 21) return 'dinner';
-  return 'snack';
-}
+import { MEALS, mealLabel, scaleItem, suggestedMeal, type MealType } from '../utils/meals';
+import type { FoodItem } from '../types';
 
 /** Nothing from the model is saved until the user confirms here. */
 export function FoodReviewScreen() {
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const pending = useReviewStore((s) => s.pending);
   const [items, setItems] = useState<FoodItem[]>(pending?.items ?? []);
-  const [mealType, setMealType] = useState<FoodLogEntry['mealType']>(suggestedMeal);
+  const [mealType, setMealType] = useState<MealType>(suggestedMeal);
+  const [logged, setLogged] = useState(false);
 
   useEffect(() => {
     setItems(pending?.items ?? []);
   }, [pending]);
 
-  const adjustPortion = (id: string, newGrams: number) => {
-    if (!Number.isFinite(newGrams) || newGrams <= 0) return;
-    setItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== id || item.portionGrams <= 0) return item;
-        const ratio = newGrams / item.portionGrams;
-        return {
-          ...item,
-          portionGrams: Math.round(newGrams),
-          userAdjusted: true,
-          macros: {
-            calories: Math.max(0, Math.round(item.macros.calories * ratio)),
-            proteinG: Math.max(0, Math.round(item.macros.proteinG * ratio * 10) / 10),
-            carbsG: Math.max(0, Math.round(item.macros.carbsG * ratio * 10) / 10),
-            fatG: Math.max(0, Math.round(item.macros.fatG * ratio * 10) / 10),
-          },
-        };
-      }),
-    );
-  };
+  const totals = sumMacros(items.map((food) => food.macros));
 
   const confirm = () => {
-    if (!pending || items.length === 0) return;
+    if (!pending || items.length === 0 || logged) return;
     useFoodLogStore.getState().addEntry({
       id: createId(),
       loggedAt: new Date().toISOString(),
       mealType,
       items,
-      photoUri: pending.photoUri,
-      totalMacros: sumMacros(items.map((item) => item.macros)),
+      photoUri: pending.photoUri || undefined,
+      totalMacros: totals,
     });
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    useReviewStore.getState().markLogged();
-    router.back();
+    setLogged(true);
+    setTimeout(
+      () => {
+        useReviewStore.getState().markLogged();
+        router.back();
+      },
+      reduceMotion ? 450 : 900,
+    );
   };
 
   if (!pending) {
     return (
       <View style={[styles.screen, styles.emptyReview]}>
-        <Text style={styles.lede}>Nothing to review.</Text>
-        <TextButton label="Close" onPress={() => router.back()} />
+        <Text style={styles.emptyTitle}>Nothing to review</Text>
+        <GlassButton label="Close" onPress={() => router.back()} />
       </View>
     );
   }
 
-  const totals = sumMacros(items.map((item) => item.macros));
-
   return (
     <View style={styles.screen}>
+      <View style={styles.topBar}>
+        <View style={styles.flex}>
+          <Text style={styles.title} accessibilityRole="header">
+            Review
+          </Text>
+          <Text style={styles.subtitle}>Check portions. Nothing is saved until you log it.</Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Discard estimate"
+          hitSlop={10}
+          onPress={() => router.back()}
+          style={styles.close}
+        >
+          <Icon name="xmark" size={13} color={colors.textSecondary} weight="bold" />
+        </Pressable>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
       >
-        <Image source={{ uri: pending.photoUri }} style={styles.photo} />
-        <Text style={styles.lede}>Change a portion if it looks off. Nothing is saved until you confirm.</Text>
-
-        <View style={styles.segment}>
-          {MEAL_TYPES.map((meal) => {
-            const selected = mealType === meal.key;
-            return (
-              <Pressable
-                key={meal.key}
-                onPress={() => setMealType(meal.key)}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                style={[styles.segmentItem, selected && styles.segmentItemOn]}
-              >
-                <Text style={[styles.segmentLabel, selected && styles.segmentLabelOn]}>{meal.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <Panel padded={false}>
-          {items.map((item, index) => (
-            <View key={item.id} style={[styles.item, index > 0 && styles.itemDivider]}>
-              <View style={styles.itemHeader}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Pressable
-                  onPress={() => setItems((prev) => prev.filter((entry) => entry.id !== item.id))}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove ${item.name}`}
-                  hitSlop={8}
-                >
-                  <Text style={styles.remove}>Remove</Text>
-                </Pressable>
-              </View>
-              <View style={styles.portionRow}>
-                <TextInput
-                  style={styles.portionInput}
-                  keyboardType="number-pad"
-                  keyboardAppearance="light"
-                  defaultValue={String(item.portionGrams)}
-                  accessibilityLabel={`${item.name} portion in grams`}
-                  onEndEditing={(e) => adjustPortion(item.id, Number(e.nativeEvent.text))}
-                />
-                <Text style={styles.grams}>g</Text>
-              </View>
-              <MacroMarks macros={item.macros} />
+        {pending.photoUri ? (
+          <View style={styles.photoWrap}>
+            <Image source={{ uri: pending.photoUri }} style={styles.photo} contentFit="cover" transition={200} />
+            <View style={styles.photoBadge}>
+              <Icon name="sparkles" size={12} color={colors.textOnMedia} />
+              <Text style={styles.photoBadgeText}>
+                {items.length} {items.length === 1 ? 'item' : 'items'} found
+              </Text>
             </View>
-          ))}
-          <View style={styles.total}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>{Math.round(totals.calories)}</Text>
           </View>
-        </Panel>
+        ) : null}
+
+        <Card style={styles.summary}>
+          <View
+            accessible
+            accessibilityLabel={`Total ${Math.round(totals.calories)} calories`}
+            style={styles.summaryTop}
+          >
+            <Text style={styles.summaryNumber}>{Math.round(totals.calories).toLocaleString()}</Text>
+            <Text style={styles.summaryUnit}>kcal</Text>
+          </View>
+          <View style={styles.summaryMacros}>
+            <MacroTotal label="Protein" grams={totals.proteinG} color={colors.protein} />
+            <MacroTotal label="Carbs" grams={totals.carbsG} color={colors.carbs} />
+            <MacroTotal label="Fat" grams={totals.fatG} color={colors.fat} />
+          </View>
+        </Card>
+
+        <Segmented
+          accessibilityLabel="Meal"
+          options={MEALS.map((meal) => ({ value: meal.key, label: meal.label }))}
+          value={mealType}
+          onChange={setMealType}
+        />
+
+        <SectionHeader title="Items" trailing="Tap a number to type it" />
+        {items.length === 0 ? (
+          <Text style={styles.emptyItems}>Every item was removed. Close to discard this photo.</Text>
+        ) : null}
+        {items.map((food) => (
+          <Card key={food.id} style={styles.item}>
+            <View style={styles.itemHeader}>
+              <Text style={styles.itemName} numberOfLines={2}>
+                {food.name}
+              </Text>
+              {food.userAdjusted ? <Text style={styles.edited}>Edited</Text> : null}
+              <Text style={styles.itemKcal}>{Math.round(food.macros.calories)} kcal</Text>
+            </View>
+            <MacroMarks macros={food.macros} />
+            <View style={styles.itemControls}>
+              <Stepper
+                label={`${food.name} portion`}
+                value={food.portionGrams}
+                unit="g"
+                step={10}
+                onChange={(grams) =>
+                  setItems((prev) => prev.map((entry) => (entry.id === food.id ? scaleItem(entry, grams) : entry)))
+                }
+              />
+              <Pressable
+                onPress={() => {
+                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setItems((prev) => prev.filter((entry) => entry.id !== food.id));
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${food.name}`}
+                hitSlop={8}
+                style={styles.remove}
+              >
+                <Icon name="trash" size={16} color={colors.textTertiary} weight="medium" />
+              </Pressable>
+            </View>
+          </Card>
+        ))}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }]}>
         <GlassButton
-          label="Confirm and log"
+          label={items.length ? `Log ${Math.round(totals.calories).toLocaleString()} kcal to ${mealLabel(mealType)}` : 'Nothing to log'}
+          icon="checkmark"
           variant="primary"
           onPress={confirm}
           disabled={items.length === 0}
-          style={styles.confirm}
         />
       </View>
+
+      {logged ? (
+        <Animated.View entering={FadeIn.duration(160)} style={styles.done} accessibilityLiveRegion="assertive">
+          <Animated.View entering={reduceMotion ? undefined : ZoomIn.springify().damping(12)} style={styles.doneDisc}>
+            <Icon name="checkmark" size={40} color={colors.onAccent} weight="bold" />
+          </Animated.View>
+          <Text style={styles.doneText}>Logged to {mealLabel(mealType)}</Text>
+        </Animated.View>
+      ) : null}
+    </View>
+  );
+}
+
+function MacroTotal({ label, grams, color }: { label: string; grams: number; color: string }) {
+  return (
+    <View style={styles.macroTotal} accessible accessibilityLabel={`${label} ${Math.round(grams)} grams`}>
+      <View style={styles.macroTotalLabel}>
+        <View style={[styles.dot, { backgroundColor: color }]} />
+        <Text style={styles.macroTotalName}>{label}</Text>
+      </View>
+      <Text style={styles.macroTotalValue}>{Math.round(grams)} g</Text>
     </View>
   );
 }
@@ -175,114 +205,191 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  flex: {
+    flex: 1,
+  },
   emptyReview: {
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.md,
     padding: spacing.lg,
   },
-  list: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
+  emptyTitle: {
+    ...typography.headline,
+    color: colors.textSecondary,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: spacing.md,
+    paddingHorizontal: spacing.gutter,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  title: {
+    ...typography.largeTitle,
+    fontSize: 28,
+    color: colors.textPrimary,
+  },
+  subtitle: {
+    ...typography.footnote,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  close: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.fill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  list: {
+    paddingHorizontal: spacing.gutter,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+    gap: spacing.sm + 4,
+  },
+  photoWrap: {
+    borderRadius: radius.lg,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+    backgroundColor: colors.surfaceRaised,
   },
   photo: {
     width: '100%',
-    height: 220,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceRaised,
+    aspectRatio: 16 / 10,
   },
-  lede: {
-    ...typography.body,
+  photoBadge: {
+    position: 'absolute',
+    left: spacing.sm + 4,
+    bottom: spacing.sm + 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  photoBadgeText: {
+    ...typography.caption,
+    fontWeight: '600',
+    color: colors.textOnMedia,
+  },
+  summary: {
+    gap: spacing.md,
+  },
+  summaryTop: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  summaryNumber: {
+    ...typography.hero,
+    fontSize: 44,
+    color: colors.textPrimary,
+  },
+  summaryUnit: {
+    ...typography.headline,
     color: colors.textSecondary,
   },
-  segment: {
+  summaryMacros: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: radius.sm,
-    padding: 3,
-  },
-  segmentItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderRadius: radius.sm - 2,
-  },
-  segmentItemOn: {
-    backgroundColor: colors.accentSoft,
-  },
-  segmentLabel: {
-    ...typography.caption,
-    color: colors.textTertiary,
-  },
-  segmentLabelOn: {
-    color: colors.accent,
-    fontWeight: '700',
-  },
-  item: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
-  },
-  itemDivider: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.hairline,
+    paddingTop: spacing.md - 4,
+  },
+  macroTotal: {
+    flex: 1,
+    gap: 2,
+  },
+  macroTotalLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  macroTotalName: {
+    ...typography.caption,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  macroTotalValue: {
+    ...typography.statMedium,
+    fontSize: 18,
+    color: colors.textPrimary,
+  },
+  emptyItems: {
+    ...typography.callout,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.xs,
+  },
+  item: {
+    gap: spacing.sm,
   },
   itemHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     gap: spacing.sm,
   },
   itemName: {
-    ...typography.bodyEmphasized,
+    ...typography.headline,
     color: colors.textPrimary,
     flex: 1,
   },
-  remove: {
+  edited: {
     ...typography.caption,
-    color: colors.danger,
+    color: colors.accent,
+    fontWeight: '600',
   },
-  portionRow: {
+  itemKcal: {
+    ...typography.statSmall,
+    color: colors.textPrimary,
+  },
+  itemControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-  },
-  portionInput: {
-    ...typography.bodyEmphasized,
-    color: colors.textPrimary,
-    backgroundColor: colors.background,
-    borderRadius: radius.sm,
-    minWidth: 64,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    textAlign: 'right',
-  },
-  grams: {
-    ...typography.caption,
-    color: colors.textTertiary,
-  },
-  total: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    marginTop: spacing.xs,
+  },
+  remove: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceRaised,
+  },
+  footer: {
+    paddingHorizontal: spacing.gutter,
+    paddingTop: spacing.sm + 4,
+    backgroundColor: colors.background,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.hairline,
   },
-  totalLabel: {
-    ...typography.caption,
-    color: colors.textTertiary,
+  done: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    backgroundColor: 'rgba(242,242,247,0.94)',
   },
-  totalValue: {
-    ...typography.statMedium,
+  doneDisc: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneText: {
+    ...typography.title,
     color: colors.textPrimary,
-  },
-  footer: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-  },
-  confirm: {
-    width: '100%',
   },
 });

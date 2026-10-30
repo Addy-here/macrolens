@@ -1,40 +1,78 @@
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import * as Haptics from 'expo-haptics';
+import { ProgressRing } from './ProgressRing';
 import { colors, spacing, typography } from '../../theme';
 import { addDays, localDateKey, startOfWeek } from '../../utils/date';
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const SIZE = 38;
 
+/**
+ * Sunday-start week. Each day carries a thin calorie ring, so the week
+ * reads at a glance the way Fitness shows a week of Activity rings.
+ */
 export function WeekStrip({
   selectedKey,
   onSelect,
+  progressByDay,
 }: {
   selectedKey: string;
   onSelect: (key: string) => void;
+  /** Calories eaten / target, keyed by local date. */
+  progressByDay: Record<string, number>;
 }) {
-  const start = startOfWeek(new Date());
-  const days = WEEKDAYS.map((label, index) => {
-    const date = addDays(start, index);
-    return { label, date, key: localDateKey(date) };
-  });
+  const today = new Date();
+  const todayKey = localDateKey(today);
+  const start = startOfWeek(today);
 
   return (
     <View style={styles.row}>
-      {days.map((day) => {
-        const selected = day.key === selectedKey;
+      {WEEKDAYS.map((letter, index) => {
+        const date = addDays(start, index);
+        const key = localDateKey(date);
+        const selected = key === selectedKey;
+        const isToday = key === todayKey;
+        const future = key > todayKey;
+        const progress = progressByDay[key] ?? 0;
+
         return (
           <Pressable
-            key={day.key}
+            key={key}
+            disabled={future}
             accessibilityRole="button"
-            accessibilityState={{ selected }}
-            accessibilityLabel={`${day.label} ${day.date.getDate()}`}
-            onPress={() => onSelect(day.key)}
+            accessibilityState={{ selected, disabled: future }}
+            accessibilityLabel={`${WEEKDAY_NAMES[index]} ${date.getDate()}${
+              progress > 0 ? `, ${Math.round(progress * 100)} percent of calories` : ''
+            }`}
+            onPress={() => {
+              void Haptics.selectionAsync();
+              onSelect(key);
+            }}
             style={styles.day}
           >
-            <Text style={[styles.weekday, selected && styles.weekdayOn]}>{day.label}</Text>
-            <DayNumber selected={selected}>{String(day.date.getDate())}</DayNumber>
+            <Text style={[styles.weekday, isToday && styles.weekdayToday]}>{letter}</Text>
+            <ProgressRing
+              progress={future ? 0 : progress}
+              color={colors.calories}
+              size={SIZE}
+              strokeWidth={3}
+              trackColor={future ? 'transparent' : colors.track}
+            >
+              {selected ? <SelectedDisc /> : null}
+              <Text
+                style={[
+                  styles.num,
+                  isToday && styles.numToday,
+                  future && styles.numFuture,
+                  selected && styles.numSelected,
+                ]}
+              >
+                {date.getDate()}
+              </Text>
+            </ProgressRing>
           </Pressable>
         );
       })}
@@ -42,31 +80,29 @@ export function WeekStrip({
   );
 }
 
-function DayNumber({ selected, children }: { selected: boolean; children: string }) {
-  const liquid = selected && Platform.OS === 'ios' && isLiquidGlassAvailable();
-  return (
-    <View style={styles.numWrap}>
-      {liquid ? (
-        <GlassView
-          pointerEvents="none"
-          style={styles.glass}
-          glassEffectStyle="regular"
-          tintColor={colors.accentSoft}
-          isInteractive
-          colorScheme="light"
-        />
-      ) : selected ? (
-        <BlurView pointerEvents="none" intensity={70} tint="systemChromeMaterialLight" style={styles.glass} />
-      ) : null}
-      <Text style={[styles.num, selected && styles.numOn]}>{children}</Text>
-    </View>
-  );
+/** The selected day is Liquid Glass tinted with the accent where the system supports it. */
+function SelectedDisc() {
+  if (Platform.OS === 'ios' && isLiquidGlassAvailable()) {
+    return (
+      <GlassView
+        pointerEvents="none"
+        style={styles.disc}
+        glassEffectStyle="regular"
+        tintColor={colors.accent}
+        colorScheme="light"
+      />
+    );
+  }
+  return <View pointerEvents="none" style={[styles.disc, styles.discSolid]} />;
 }
+
+const DISC = SIZE - 10;
 
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    marginBottom: spacing.lg,
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
   },
   day: {
     flex: 1,
@@ -76,29 +112,33 @@ const styles = StyleSheet.create({
   },
   weekday: {
     ...typography.caption,
+    fontWeight: '600',
     color: colors.textTertiary,
-    fontSize: 11,
   },
-  weekdayOn: {
+  weekdayToday: {
     color: colors.accent,
   },
-  numWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+  disc: {
+    position: 'absolute',
+    width: DISC,
+    height: DISC,
+    borderRadius: DISC / 2,
     overflow: 'hidden',
   },
-  glass: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: 16,
+  discSolid: {
+    backgroundColor: colors.accent,
   },
   num: {
-    ...typography.bodyEmphasized,
+    ...typography.statSmall,
     color: colors.textPrimary,
   },
-  numOn: {
+  numToday: {
     color: colors.accent,
+  },
+  numFuture: {
+    color: colors.textTertiary,
+  },
+  numSelected: {
+    color: colors.onAccent,
   },
 });

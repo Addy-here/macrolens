@@ -36,16 +36,13 @@ export default function RootLayout() {
             name="review"
             options={{
               presentation: 'formSheet',
-              headerShown: true,
-              title: 'Review',
-              headerStyle: { backgroundColor: colors.background },
-              headerTintColor: colors.textPrimary,
-              headerTitleStyle: { color: colors.textPrimary },
               contentStyle: { backgroundColor: colors.background },
               sheetGrabberVisible: true,
-              sheetAllowedDetents: [0.92, 1],
+              sheetAllowedDetents: [1],
+              sheetCornerRadius: 30,
             }}
           />
+          <Stack.Screen name="dev" options={{ animation: 'none' }} />
         </Stack>
         <StatusBar style="dark" />
       </SafeAreaProvider>

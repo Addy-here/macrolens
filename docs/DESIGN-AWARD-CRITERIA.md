@@ -53,28 +53,38 @@ What MacroFactor does well that maps directly to ADA criteria:
 - **Inclusivity:** full Dynamic Type support, VoiceOver labels on all
   interactive elements, respects Reduce Motion for its animated charts.
 
-## Current Macrolens status against each category (honest, as of 2026-10-29)
+## What the winners and category leaders actually ship (researched 2026-10-29)
+
+No dedicated nutrition tracker has won an ADA. Mela was a 2025 Interaction
+finalist; Speechify won Inclusivity. The 2026 winners include Tide Guide
+(Visuals and Graphics) and Moonlitt (Interaction). Gentler Streak won Social
+Impact in 2024. The 2025 App Store Awards went to Tiimo (iPhone) and Strava
+(Watch). What transfers to Macrolens:
+
+| Source | What they do | Where it landed |
+|---|---|---|
+| Cal AI (category leader) | Calorie number + ring hero, macro cards, calendar strip, recently-uploaded photo list, a correction loop on scan results | Today hero, macro meters, ringed week strip, photo-first meal rows; review stepper |
+| MacroFactor (category leader) | Dashboard of *interpreted* insights: expenditure, weight trend that smooths daily noise, goal progress; summary stats per selected range | Plan: reason + delta on the target, trend chart with range picker and stats, goal card with projected date |
+| Tide Guide (ADA 2026, Visuals) | Full-width charts that stay easy to read; distinctive without hiding the data | Clean full-width trend chart, hairline grid, one accent line |
+| Moonlitt (ADA 2026, Interaction) | Tactile, touchable data | Drag-to-scrub chart with haptic ticks |
+| Mela (ADA 2025 finalist, Interaction) | Food photography as the hero | Photo thumbnails on every meal, photo-led review, "Log again" shelf |
+| Gentler Streak (ADA 2024, Social Impact) | Calm, non-judgmental framing | Neutral "left / over"; plain-language reasons |
+| Apple Fitness / Settings | Rings per day, grouped lists with icon tiles | Week strip rings; Settings rows |
+
+## Current Macrolens status against each category (as of 2026-10-29, after the revamp)
 
 | Category | Status | Notes |
 |---|---|---|
-| Interaction | **Improved** | Migrated off hand-rolled `@react-navigation/bottom-tabs` to `expo-router`'s `NativeTabs` — real `UITabBarController`, real floating Liquid Glass pill on iOS 26, no manual pill-shape styling. See ADR 2026-10-29. |
-| Craft and Polish | **Partial** | `GlassView`/`expo-glass-effect` gives real native glass material on supported primitives (cards, buttons, sheets, tab bar). SF Symbols via `expo-symbols` for icons. Not yet audited: Dynamic Type support, haptics on key actions (log confirm, goal save), spring/motion tuning. |
-| Inclusivity | **Not started** | No VoiceOver label audit, no Dynamic Type testing, no Reduce Motion handling on any animated component (`MacroRing`'s animated progress, glass transitions). This is the single biggest gap against ADA criteria right now. |
-| Innovation | **On track** | Adaptive weekly-recalculation plan (EWMA trend weight, not static TDEE) is the real differentiator already planned — matches what made MacroFactor notable. Not yet built server-side. |
-| Delight and Fun | **Not started** | No deliberate micro-interaction/delight moments designed in yet (e.g. a satisfying confirm animation on logging a meal, a celebratory moment on hitting a weekly goal). |
-| Social Impact | **N/A for v1** | Not a stated goal for this app; skip unless the user wants to scope it in later. |
+| Interaction | **Strong** | Native tabs, native collapsing large titles per tab, native form sheet. Spring segmented controls, steppers, a scrubbable chart, haptics on every control. |
+| Craft and Polish | **Good** | One token set, validated nutrient palette, SF Pro Rounded figures, continuous corners. Not yet: dark mode, iPad layout. |
+| Inclusivity | **Partial** | VoiceOver labels on rings, meters, rows, chart summary; Stepper is `adjustable`; delete is a VoiceOver action; all motion honours Reduce Motion; identity never by color alone. Not yet audited at the largest Dynamic Type sizes. |
+| Innovation | **On track** | Adaptive plan with reasons and a projected date; still the client-side starter calculator until the backend exists. |
+| Delight and Fun | **Started** | Staged scan while the model works; check-mark moment on log. Next: a moment when the weekly trend hits the planned rate. |
+| Social Impact | **N/A for v1** | Not a stated goal. |
 
-## Concrete next actions this doc implies (not yet done, for future work)
+## Next actions
 
-1. Accessibility pass: add `accessibilityLabel`s to every `Pressable`/
-   `GlassButton`, verify Dynamic Type doesn't break any fixed-height
-   layout, wrap `MacroRing`'s animation behind a Reduce-Motion check
-   (`AccessibilityInfo.isReduceMotionEnabled()`), same pattern already
-   used for the web-platform guard.
-2. Haptics: add `expo-haptics` light impact feedback on meal-confirm,
-   goal-save, and tab switches — a concrete "Interaction" polish item
-   that's cheap to add and matches what most ADA winners do.
-3. One deliberate "Delight and Fun" moment: candidate is a small
-   celebratory animation/haptic when a weekly weigh-in trend hits the
-   target rate — ties directly into the adaptive-plan feature so it's
-   not decoration bolted onto something unrelated.
+1. Dynamic Type pass at AX sizes (hero numbers and three-up macro cards will need to wrap).
+2. Dark mode as its own token set, validated against the dark surface.
+3. A weekly check-in moment tied to the adaptive plan.
+4. Add a missed item on the review sheet (PRODUCT.md v1 scope).

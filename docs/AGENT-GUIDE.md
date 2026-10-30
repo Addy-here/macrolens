@@ -19,7 +19,8 @@ macrolens/
 │   ├── src/
 │   │   ├── screens/      # One file per screen, PascalCase, suffix "Screen"
 │   │   ├── components/   # Reusable UI, especially glass-surface primitives
-│   │   ├── navigation/   # React Navigation stacks/tabs
+│   │   ├── navigation/   # TabStack: native large-title stack per tab
+│   │   ├── dev/          # Dev-only sample data + deep-link helpers
 │   │   ├── store/        # Zustand stores (one per domain: logs, user, plan)
 │   │   ├── theme/         # Design tokens: colors, spacing, typography, glass
 │   │   ├── services/      # API clients: backend, vision AI, health kit
@@ -69,6 +70,19 @@ npm install              # install deps
 npx expo start            # dev server (scan QR with Expo Go, or press i/a)
 npx expo install <pkg>     # install a native-module-aware package (not npm install)
 npx tsc --noEmit            # typecheck
+```
+
+### Looking at the app in the simulator
+
+With Metro running and the simulator booted, the dev-only `/dev` route
+drives the app without tapping:
+
+```bash
+xcrun simctl openurl booted "exp://127.0.0.1:8081/--/dev?seed=1"           # sample data, Today
+xcrun simctl openurl booted "exp://127.0.0.1:8081/--/dev?go=/plan&y=500"    # a tab, scrolled
+xcrun simctl openurl booted "exp://127.0.0.1:8081/--/dev?review=1"          # staged review sheet
+xcrun simctl openurl booted "exp://127.0.0.1:8081/--/dev?clear=1"           # wipe all data
+xcrun simctl io booted screenshot shot.png
 ```
 
 ## Current status

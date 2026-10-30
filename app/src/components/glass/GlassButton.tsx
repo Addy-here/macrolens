@@ -2,16 +2,18 @@ import React from 'react';
 import {
   Platform,
   Pressable,
-  Text,
   StyleSheet,
+  Text,
   View,
-  ViewStyle,
-  GestureResponderEvent,
+  type GestureResponderEvent,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { BlurView } from 'expo-blur';
+import type { SFSymbol } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
-import { colors, radius, typography } from '../../theme';
+import { Icon } from '../ui/Icon';
+import { colors, radius, shadow, typography } from '../../theme';
 
 type Variant = 'primary' | 'secondary';
 
@@ -19,108 +21,118 @@ interface GlassButtonProps {
   label: string;
   onPress: (e: GestureResponderEvent) => void;
   variant?: Variant;
+  icon?: SFSymbol;
   disabled?: boolean;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
+  accessibilityHint?: string;
 }
 
 /**
- * One filled action per screen. Secondary stays a system material.
+ * Capsule button. Primary is the one filled action on a screen: accent-tinted
+ * Liquid Glass on iOS 26, solid accent elsewhere. Secondary is a white capsule.
  */
 export function GlassButton({
   label,
   onPress,
   variant = 'secondary',
+  icon,
   disabled = false,
   style,
+  accessibilityHint,
 }: GlassButtonProps) {
-  const handlePress = (e: GestureResponderEvent) => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress(e);
-  };
+  const primary = variant === 'primary';
+  // Clear glass over a flat gray page has nothing to refract and reads as missing,
+  // so only the tinted primary uses the material; secondary is a white capsule.
+  const glass = primary && !disabled && Platform.OS === 'ios' && isLiquidGlassAvailable();
+  const ink = disabled ? colors.textTertiary : primary ? colors.onAccent : colors.textPrimary;
 
-  const accessibility = {
-    accessibilityRole: 'button' as const,
-    accessibilityLabel: label,
-    accessibilityState: { disabled: !!disabled },
-  };
-
-  if (variant === 'primary') {
-    const glass = !disabled && Platform.OS === 'ios' && isLiquidGlassAvailable();
-    return (
-      <Pressable
-        {...accessibility}
-        onPress={handlePress}
-        disabled={disabled}
-        style={[styles.shadowWrap, style]}
-      >
-        {glass ? (
-          <GlassView
-            style={styles.base}
-            glassEffectStyle="regular"
-            tintColor={colors.accent}
-            isInteractive
-            colorScheme="light"
-          >
-            <Text style={[styles.label, { color: colors.onAccent }]}>{label}</Text>
-          </GlassView>
-        ) : (
-          <View style={[styles.base, disabled ? styles.primaryOff : styles.primary]}>
-            <Text style={[styles.label, { color: disabled ? colors.textTertiary : colors.onAccent }]}>
-              {label}
-            </Text>
-          </View>
-        )}
-      </Pressable>
-    );
-  }
+  const content = (
+    <View style={styles.inner}>
+      {icon ? <Icon name={icon} size={17} color={ink} /> : null}
+      <Text style={[styles.label, { color: ink }]}>{label}</Text>
+    </View>
+  );
 
   return (
     <Pressable
-      {...accessibility}
-      onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled }}
       disabled={disabled}
-      style={[styles.shadowWrap, style]}
+      onPress={(e) => {
+        void Haptics.impactAsync(primary ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
+        onPress(e);
+      }}
+      style={({ pressed }) => [
+        styles.wrap,
+        primary && !disabled && styles.lift,
+        !primary && !disabled && shadow.card,
+        pressed && !glass && styles.pressed,
+        style,
+      ]}
     >
-      {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
-        <GlassView style={styles.base} glassEffectStyle="regular" isInteractive>
-          <Text style={[styles.label, { color: colors.textPrimary }]}>
-            {label}
-          </Text>
+      {glass ? (
+        <GlassView
+          style={styles.base}
+          glassEffectStyle="regular"
+          tintColor={colors.accent}
+          isInteractive
+          colorScheme="light"
+        >
+          {content}
         </GlassView>
       ) : (
-        <BlurView intensity={40} tint="light" style={styles.base}>
-          <Text style={[styles.label, { color: colors.textPrimary }]}>
-            {label}
-          </Text>
-        </BlurView>
+        <View
+          style={[
+            styles.base,
+            disabled ? styles.off : primary ? styles.primary : styles.secondary,
+          ]}
+        >
+          {content}
+        </View>
       )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  shadowWrap: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 2,
+  wrap: {
+    borderRadius: radius.pill,
+  },
+  lift: {
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+  },
+  pressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
   },
   base: {
-    minHeight: 52,
-    paddingVertical: 14,
+    minHeight: 54,
     paddingHorizontal: 24,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  inner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   primary: {
     backgroundColor: colors.accent,
   },
-  primaryOff: {
-    backgroundColor: colors.surfaceRaised,
+  secondary: {
+    backgroundColor: colors.surface,
+  },
+  off: {
+    backgroundColor: colors.fill,
   },
   label: {
-    ...typography.bodyEmphasized,
+    ...typography.headline,
   },
 });

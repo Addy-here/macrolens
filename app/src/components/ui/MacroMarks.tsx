@@ -4,28 +4,26 @@ import { colors, spacing, typography } from '../../theme';
 import type { Macros } from '../../types';
 
 const marks = [
-  { key: 'calories', color: colors.calories, unit: 'calories' },
-  { key: 'protein', color: colors.protein, unit: 'protein' },
-  { key: 'carbs', color: colors.carbs, unit: 'carbs' },
-  { key: 'fat', color: colors.fat, unit: 'fat' },
+  { key: 'proteinG', letter: 'P', name: 'protein', color: colors.protein },
+  { key: 'carbsG', letter: 'C', name: 'carbs', color: colors.carbs },
+  { key: 'fatG', letter: 'F', name: 'fat', color: colors.fat },
 ] as const;
 
-function amount(macros: Macros, key: (typeof marks)[number]['key']) {
-  if (key === 'calories') return Math.round(macros.calories);
-  if (key === 'protein') return Math.round(macros.proteinG);
-  if (key === 'carbs') return Math.round(macros.carbsG);
-  return Math.round(macros.fatG);
-}
-
-/** Colored nutrient marks. The same four colors as the goal rings. */
+/**
+ * Protein, carbs, and fat for one food. The colored dot carries identity;
+ * the letter and number stay in text ink so identity never relies on color alone.
+ */
 export function MacroMarks({ macros }: { macros: Macros }) {
-  const label = marks.map((mark) => `${amount(macros, mark.key)} ${mark.unit}`).join(', ');
+  const label = marks.map((mark) => `${Math.round(macros[mark.key])} grams ${mark.name}`).join(', ');
   return (
-    <View accessibilityLabel={label} style={styles.row}>
+    <View accessible accessibilityLabel={label} style={styles.row}>
       {marks.map((mark) => (
         <View key={mark.key} style={styles.mark}>
           <View style={[styles.dot, { backgroundColor: mark.color }]} />
-          <Text style={styles.value}>{amount(macros, mark.key)}</Text>
+          <Text style={styles.value}>
+            <Text style={styles.letter}>{mark.letter} </Text>
+            {Math.round(macros[mark.key])}g
+          </Text>
         </View>
       ))}
     </View>
@@ -35,22 +33,24 @@ export function MacroMarks({ macros }: { macros: Macros }) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
+    gap: spacing.sm + 2,
   },
   mark: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  letter: {
+    color: colors.textTertiary,
   },
   value: {
     ...typography.caption,
     color: colors.textSecondary,
+    fontVariant: ['tabular-nums'],
   },
 });

@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { GlassButton } from './glass';
-import { Panel } from './ui/Panel';
-import { TextButton } from './ui/TextButton';
-import { AI_MODELS, AI_PROVIDERS } from '../services/aiKey';
+import { Card } from './ui/Card';
+import { GroupLabel, ListRow } from './ui/ListRow';
+import { AI_MODELS, AI_PROVIDERS, providerLabel } from '../services/aiKey';
 import { useAiKeyStore } from '../store/useAiKeyStore';
-import { colors, spacing, typography } from '../theme';
+import { colors, radius, spacing, typography } from '../theme';
 
 /**
  * Provider, model, and the user's own key. The secret is written to the
@@ -32,10 +31,10 @@ export function AiKeySection() {
 
   const onSave = async () => {
     try {
-      await saveKey(draft);
+      await saveKey(draft.trim());
       setDraft('');
       setMessageTone('ok');
-      setMessage('Saved on this iPhone.');
+      setMessage(null);
     } catch (error) {
       setMessageTone('error');
       setMessage(error instanceof Error ? error.message : 'Could not save that key.');
@@ -46,158 +45,142 @@ export function AiKeySection() {
     await clearKey();
     setDraft('');
     setMessageTone('ok');
-    setMessage('Key removed.');
+    setMessage('Key removed from this iPhone.');
   };
 
   if (Platform.OS === 'web') {
-    return <Text style={styles.hint}>A key can be saved on iPhone, in the keychain.</Text>;
+    return (
+      <>
+        <GroupLabel>Photo estimates</GroupLabel>
+        <Text style={styles.footnote}>A key can be saved on iPhone, in the keychain.</Text>
+      </>
+    );
   }
 
   return (
     <View>
-      <Text style={styles.groupTitle}>Provider</Text>
-      <Panel padded={false}>
+      <GroupLabel>Photo estimates</GroupLabel>
+      <Card padded={false}>
         {AI_PROVIDERS.map((item, index) => (
-          <ChoiceRow
+          <ListRow
             key={item.id}
-            label={item.label}
-            selected={provider === item.id}
             first={index === 0}
+            title={item.label}
+            accessory="check"
+            selected={provider === item.id}
             onPress={() => {
               void selectProvider(item.id);
               setMessage(null);
             }}
           />
         ))}
-      </Panel>
+      </Card>
 
-      <Text style={styles.groupTitle}>Model</Text>
-      <Panel padded={false}>
+      <GroupLabel>Model</GroupLabel>
+      <Card padded={false}>
         {AI_MODELS[provider].map((item, index) => (
-          <ChoiceRow
+          <ListRow
             key={item.id}
-            label={item.label}
-            selected={model === item.id}
             first={index === 0}
+            title={item.label}
+            accessory="check"
+            selected={model === item.id}
             onPress={() => {
               void selectModel(item.id);
               setMessage(null);
             }}
           />
         ))}
-      </Panel>
+      </Card>
 
-      <Text style={styles.groupTitle}>Key</Text>
-      <Panel>
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder={hasKey ? 'Paste a replacement key' : 'Paste API key'}
-          placeholderTextColor={colors.textTertiary}
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
-          textContentType="none"
-          keyboardAppearance="light"
-          style={styles.input}
-          accessibilityLabel="API key"
+      <GroupLabel>{`${providerLabel(provider)} key`}</GroupLabel>
+      <Card padded={false}>
+        <ListRow
+          first
+          icon={hasKey ? 'lock.fill' : 'key.fill'}
+          tint={hasKey ? colors.tile.green : colors.tile.orange}
+          title={hasKey ? 'Saved in Keychain' : 'No key yet'}
+          subtitle={
+            hasKey
+              ? 'Only this iPhone holds it. It is never shown again.'
+              : 'Paste a key to turn on photo estimates.'
+          }
+          trailing={
+            hasKey ? (
+              <Pressable accessibilityRole="button" onPress={() => void onClear()} hitSlop={8}>
+                <Text style={styles.remove}>Remove</Text>
+              </Pressable>
+            ) : undefined
+          }
         />
-        <GlassButton
-          label={hasKey ? 'Replace key' : 'Save key'}
-          onPress={() => void onSave()}
-          variant="primary"
-          disabled={draft.trim().length === 0}
-        />
-        {hasKey ? <TextButton label="Remove key" onPress={() => void onClear()} tone="danger" /> : null}
-        {message ? (
-          <Text style={[styles.hint, messageTone === 'error' ? styles.error : styles.ok]}>{message}</Text>
-        ) : null}
-      </Panel>
+        <View style={styles.keyEntry}>
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            placeholder={hasKey ? 'Paste a replacement key' : 'Paste API key'}
+            placeholderTextColor={colors.textTertiary}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="none"
+            keyboardAppearance="light"
+            style={styles.input}
+            accessibilityLabel={`${providerLabel(provider)} API key`}
+          />
+          <GlassButton
+            label={hasKey ? 'Replace' : 'Save'}
+            onPress={() => void onSave()}
+            disabled={draft.trim().length === 0}
+            style={styles.keyButton}
+          />
+        </View>
+      </Card>
+      {message ? (
+        <Text style={[styles.footnote, messageTone === 'error' ? styles.error : styles.ok]}>{message}</Text>
+      ) : (
+        <Text style={styles.footnote}>
+          Photos go straight from this iPhone to {providerLabel(provider)}. Macrolens has no server in between.
+        </Text>
+      )}
     </View>
   );
 }
 
-function ChoiceRow({
-  label,
-  selected,
-  first,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  first: boolean;
-  onPress: () => void;
-}) {
-  const glass = selected && Platform.OS === 'ios' && isLiquidGlassAvailable();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      onPress={onPress}
-      style={[styles.choice, !first && styles.divider]}
-    >
-      {glass ? (
-        <GlassView
-          pointerEvents="none"
-          style={styles.choiceGlass}
-          glassEffectStyle="regular"
-          tintColor={colors.accentSoft}
-          isInteractive
-          colorScheme="light"
-        />
-      ) : null}
-      <Text style={[styles.choiceLabel, selected && styles.choiceLabelOn]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  groupTitle: {
-    ...typography.caption,
-    color: colors.textTertiary,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    marginLeft: spacing.xs,
+  keyEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md - 4,
+    paddingTop: 0,
   },
-  choice: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    overflow: 'hidden',
-  },
-  choiceGlass: {
-    ...StyleSheet.absoluteFill,
-  },
-  divider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.hairline,
-  },
-  choiceLabel: {
+  input: {
     ...typography.body,
+    flex: 1,
     color: colors.textPrimary,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md - 2,
+    paddingVertical: 12,
   },
-  choiceLabelOn: {
-    color: colors.accent,
-    fontWeight: '600',
+  keyButton: {
+    minWidth: 96,
   },
-  hint: {
-    ...typography.caption,
-    color: colors.textTertiary,
+  remove: {
+    ...typography.body,
+    color: colors.danger,
+  },
+  footnote: {
+    ...typography.footnote,
+    color: colors.textSecondary,
     marginTop: spacing.sm,
+    marginHorizontal: spacing.md,
+    lineHeight: 18,
   },
   ok: {
     color: colors.success,
   },
   error: {
     color: colors.danger,
-  },
-  input: {
-    ...typography.body,
-    color: colors.textPrimary,
-    backgroundColor: colors.background,
-    borderRadius: 10,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.md,
   },
 });

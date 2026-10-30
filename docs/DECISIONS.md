@@ -403,3 +403,59 @@ system pill.
 using the app has a Gemini key and needs to pick the model that key
 should call. The solid orange day was a drawn control on a screen that
 otherwise uses the system glass.
+
+---
+
+## 2026-10-29 — Full UI revamp from award-winning and category-leading apps
+
+**Decision:** Supersedes the 2026-10-28 “light food log” entry’s component
+list (the light page and orange accent stay). Every tab root is now a
+native stack with a collapsing large title (`app/(tabs)/<tab>/_layout.tsx`
+→ `src/navigation/TabStack.tsx`), and every screen was rebuilt:
+
+- **Today** — calories-left hero with a ring (Cal AI’s proven layout),
+  three macro meters, a week strip where each day carries its own calorie
+  ring (Fitness), and meal cards whose rows lead with the photo (Mela).
+  Long-press a meal to delete it (there was no delete before).
+- **Log** — dark viewfinder frame with corner guides, a staged scan
+  (“Finding foods → Estimating portions → Adding up macros”) while the
+  model runs, and a “Log again” shelf that stages a review — never a
+  direct write.
+- **Review** — photo with an item count, a total card, a sliding meal
+  picker, and a ±10 g stepper per item (tap to type); Confirm states the
+  calories and meal, then a short check-mark moment.
+- **Plan** — MacroFactor-style interpreted insights: target with the
+  reason and delta, macro split bar, a scrubbable trend chart (scale dots
+  + EWMA trend, 1W/1M/3M/All, range stats), goal progress with a
+  projected date, and the weigh-in.
+- **Settings** — iOS Settings idiom (icon tiles, checkmarks), a live
+  preview of the target your edits produce, a pace picker instead of
+  typing a negative number, and sex and birth year are now editable
+  (the calculator already used them).
+
+The nutrient palette changed: protein `#C2368F`, carbs `#2F7CF6`, fat
+`#1F9D63`, calories = the accent. The old protein orange failed the
+dataviz validator’s lightness band and was confusable with the accent;
+the new set passes all checks on white.
+
+**Why:** The user asked to adopt what award-winning and editors’-pick apps
+in this space actually do, revamping freely. No pure nutrition app has
+won an ADA, so the references are the closest category leaders (Cal AI,
+MacroFactor) plus recent ADA winners whose craft transfers (Tide Guide —
+readable full-width charts; Moonlitt — touchable data; Mela — food
+photography; Gentler Streak — non-judgmental framing). Details in
+`docs/DESIGN-AWARD-CRITERIA.md`.
+
+**Also:** `app/dev.tsx` is a development-only deep link
+(`/dev?seed=1&go=/plan&y=500&review=1&clear=1`) used to drive the
+simulator for screenshots; it redirects to Today in production. Removed
+`GlassCard`, `GlassSheet`, `MacroRing`, `Panel`, `GoalTile`, `MacroBar`,
+`ScreenHeader`, `TextButton`, `WeightLine` — replaced by the components
+listed in `docs/DESIGN-SYSTEM.md`. Secondary buttons are white capsules,
+not clear glass (clear glass on a flat page renders as nearly invisible).
+
+**Alternatives considered:** A live `expo-camera` viewfinder on Log
+(deferred — it can’t be verified in the simulator and the picker flow
+works). A dark theme (deferred — the light log was a deliberate choice
+the day before; dark mode should be a proper second set of tokens, not a
+flip).
