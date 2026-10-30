@@ -13,7 +13,7 @@ Read `docs/DESIGN-SYSTEM.md` before changing UI. Tokens live in `app/src/theme/`
 
 ## What this app is
 
-A light food log in the system idiom. Every tab root has a native collapsing large title (`src/navigation/TabStack.tsx`). Today: a ringed week strip, the calories-left hero with a ring, three macro meters, and photo-first meal cards (tap to edit, long-press for Log again / Delete with Undo; a meal's “+” logs into that meal). Log: “What did you eat?” with Speak and Photo as equal one-tap buttons and a text field, foods resolving live as you talk, then Search / Library / Quick add and “Log again”. A quick-log bar (tab-bar accessory) offers Speak and Photo on every tab. Review (page sheet): what you said or the photo, total, meal and day, a stepper per item in natural units, “Add a missed item”, one Confirm. Plan: the target and why it moved, the macro split, a scrubbable trend chart, goal progress, weigh-in. Settings: the iOS Settings list with a live target preview.
+A light food log in the system idiom. Every tab root has a native collapsing large title (`src/navigation/TabStack.tsx`). Today: a ringed week strip, the calories-left hero with a ring, three macro meters, and photo-first meal cards (tap to edit, long-press for Log again / Delete with Undo; a meal's “+” logs into that meal). Log: a meal-aware prompt (“What's for lunch?”) with Speak and Photo as equal tiles and a text field; while you talk the card glows and the meal builds as a plate (macro rings, total, macro bar) with one Review, then Search / Library / Quick add and “Log again”. A quick-log bar (tab-bar accessory) offers Speak and Photo on every tab. Review (page sheet): what you said or the photo, total, meal and day, a stepper per item in natural units, “Add a missed item”, one Confirm. Plan: the target and why it moved, the macro split, a scrubbable trend chart, goal progress, weigh-in. Settings: the iOS Settings list with a live target preview.
 
 ## Rules
 
@@ -27,7 +27,8 @@ A light food log in the system idiom. Every tab root has a native collapsing lar
 - Review-before-save is the only write path for anything, including voice, “Log again”, quick add, and edits.
 - Sheets with a pinned action use `presentation: 'modal'` and `SheetFooter`, not `formSheet`; memoise their `Stack.Screen` options.
 - Copy is strict: no hints, no explanations of the obvious, no AI-key nudges once a key is saved.
-- Screens with a text field scroll in `KeyboardAwareScrollView` (react-native-keyboard-controller); never `automaticallyAdjustKeyboardInsets`. Live transcripts render as `Text`, never an editable field.
+- Screens with a text field scroll in `KeyboardAwareScrollView` (react-native-keyboard-controller), except Log (plain `ScrollView` + keyboard spacer); never `automaticallyAdjustKeyboardInsets`, never `scrollEnabled={false}` on a multiline field. Live transcripts render as `Text`, never an editable field.
+- Log's card: prompt, words, `MealPlate` (macro rings, Add more, total + `MacroBar`), one Review. Controls sit with what they act on; no stacked buttons.
 - Source badges follow the item's name. Portions read as fractions (“½ avocado”).
 - Check every touched screen at `accessibility-medium` text: one-line hero numbers, units that widen instead of breaking, chips that stack.
 

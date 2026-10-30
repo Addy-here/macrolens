@@ -601,3 +601,27 @@ padding (rejected: still next to the mic once text wraps); an editable
 field with `scrollEnabled={false}` while listening (rejected: the caret
 still drives the parent scroll view).
 
+## 2026-10-30 — Log composer rebuilt around the meal
+
+**Decision:** Log's card no longer stacks buttons. Empty: the meal-aware
+prompt ("What's for lunch?") over two equal capture tiles. Listening: the
+card glows with the voice level while the meal builds below the words.
+With text: the meal as a plate — each food with a macro ring, an "Add more"
+mic row closing the list, the total with a stacked macro bar and legend —
+and one full-width Review. The AI choice is an As heard / With AI segmented
+control at the top of the plate, shown only when the instant match is unsure
+and a key is saved; "With AI" dims the preview and puts ✦ on Review. Log's
+page is a plain `ScrollView` with a keyboard spacer.
+
+**Why:** The user found the previous card's mic, "Review with AI" and
+"Review as heard" read as stacked bricks. Each control now sits with the
+thing it acts on: clear with the words, Add more with the list of foods,
+the AI choice with how the foods are read, Review with the total. Testing
+with the real on-screen keyboard showed `KeyboardAwareScrollView` threw the
+page upward when Speak or Add more replaced the focused field with live
+text; a plain scroll view didn't move.
+
+**Alternatives considered:** A toolbar row (mic and camera left, Review
+right) — still three shapes side by side. A switch row for AI — needed a
+sentence of explanation; the two labelled segments explain themselves.
+

@@ -1,18 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import type { SFSymbol } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { GlassButton } from '../components/glass';
 import { Card } from '../components/ui/Card';
 import { FoodThumb } from '../components/ui/FoodThumb';
+import { MealPlate } from '../components/MealPlate';
 import { Icon } from '../components/ui/Icon';
 import { PhotoScan } from '../components/ui/PhotoScan';
 import { RecordingBar } from '../components/ui/RecordingBar';
 import { SectionHeader } from '../components/ui/SectionHeader';
-import { colors, radius, shadow, spacing, typography } from '../theme';
+import { colors, radius, shadow, spacing, typography, withAlpha } from '../theme';
 import { useVoiceCapture } from '../hooks/useVoiceCapture';
 import { DescribeError, quickAddItem, stageAgain, stageDescription, type DescribeMode } from '../services/logFlow';
 import { capturePhoto, type CapturedPhoto } from '../services/photoCapture';
@@ -24,9 +31,16 @@ import { useLogIntentStore } from '../store/useLogIntentStore';
 import { useReviewStore } from '../store/useReviewStore';
 import { useDevAction, useDevAutoScroll } from '../dev/devScroll';
 import { dateFromKey, localDateKey } from '../utils/date';
-import { parseDescription, portionLabel } from '../utils/describe';
-import { entryTitle, MEALS, mealLabel } from '../utils/meals';
+import { parseDescription } from '../utils/describe';
+import { entryTitle, MEALS, mealLabel, suggestedMeal } from '../utils/meals';
 import type { FoodLogEntry } from '../types';
+
+const PROMPTS: Record<FoodLogEntry['mealType'], string> = {
+  breakfast: 'What’s for breakfast?',
+  lunch: 'What’s for lunch?',
+  dinner: 'What’s for dinner?',
+  snack: 'What did you eat?',
+};
 
 const EXAMPLES = [
   'Two eggs, sourdough toast and a flat white',
@@ -37,9 +51,12 @@ const EXAMPLES = [
 ];
 
 /**
- * The logging hub. Speak and Photo are equal, one tap each; typing works in
- * the same field. Search, the photo library, and quick add sit below. Every
- * path ends on the review sheet.
+ * The logging hub. One card that changes with what you're doing: two equal
+ * tiles to speak or take a photo; while listening, a glow that follows your
+ * voice and the meal assembling below your words; then the meal as a plate —
+ * each food with its macro ring, "Add more", the total — and one Review.
+ * Search, the photo library, and quick add sit below. Every path ends on the
+ * review sheet.
  */
 export function LogScreen() {
   const hasKey = useAiKeyStore((s) => s.hasKey);
@@ -56,6 +73,8 @@ export function LogScreen() {
 
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState<DescribeMode | null>(null);
+  /** The person's pick between the instant match and the AI, when they're offered the choice. */
+  const [aiPick, setAiPick] = useState<DescribeMode | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -82,6 +101,7 @@ export function LogScreen() {
     seenLog.current = loggedToken;
     setDraft('');
     base.current = '';
+    setAiPick(null);
     setMessage(null);
     setPhoto(null);
     setPhotoError(null);
@@ -99,6 +119,7 @@ export function LogScreen() {
     else if (intent.kind === 'text') {
       if (voice.active) voice.cancel();
       base.current = '';
+      setAiPick(null);
       setDraft(intent.text);
       setMessage(null);
       voice.clearError();
@@ -124,13 +145,16 @@ export function LogScreen() {
   const parsed = useMemo(() => parseDescription(draft, new Date(), library), [draft, library]);
   const total = parsed.items.reduce((sum, item) => sum + item.macros.calories, 0);
   const hasText = draft.trim().length > 0;
-  /** With a key, a shaky match goes to the AI by default; the heard version stays one tap away. */
-  const preferAI = hasKey && hasText && !parsed.confident;
+  /** With a key, an unsure match is offered both ways and goes to the AI unless the person picks "As heard". */
+  const offerAI = hasKey && hasText && !parsed.confident;
+  const mode: DescribeMode = offerAI ? (aiPick ?? 'ai') : 'local';
 
-  useDevAction('log.review', () => void review(preferAI ? 'ai' : 'local'));
+  useDevAction('log.review', () => void review(mode));
+  useDevAction('log.pickHeard', () => setAiPick('local'));
   useDevAction('log.reviewAsHeard', () => void review('local'));
   useDevAction('log.stop', () => voice.stop());
   useDevAction('log.focus', () => inputRef.current?.focus());
+  useDevAction('log.blur', () => inputRef.current?.blur());
   // Development: show the photo estimate states without a camera or a key.
   useDevAction('log.simulatePhoto', () => {
     setPhotoError(null);
@@ -250,12 +274,31 @@ export function LogScreen() {
   const listening = voice.status === 'listening' || voice.status === 'starting';
   const error = voice.error?.message ?? message;
 
+  // While listening the card glows with the voice: a warm edge and halo that swell with the level.
+  const live = useSharedValue(0);
+  useEffect(() => {
+    live.value = withTiming(listening ? 1 : 0, { duration: 260 });
+  }, [listening, live]);
+  const level = voice.level;
+  const glowStyle = useAnimatedStyle(() => {
+    const swell = reduceMotion ? 0.4 : level.value;
+    return {
+      shadowOpacity: live.value * (0.16 + swell * 0.22),
+      shadowRadius: 14 + swell * 16,
+    };
+  });
+  // Room to scroll to Review while the keyboard is up. The page itself never auto-scrolls: the composer is
+  // the first thing on it, so the keyboard can't cover the field, and KeyboardAwareScrollView jumped the
+  // page when the focused field turned into live text on Speak / Add more.
+  const keyboard = useReanimatedKeyboardAnimation();
+  const keyboardSpace = useAnimatedStyle(() => ({ height: Math.max(-keyboard.height.value, 0) }));
+  const edgeStyle = useAnimatedStyle(() => ({
+    opacity: live.value * (0.55 + (reduceMotion ? 0.2 : level.value) * 0.45),
+  }));
+
   return (
-    <KeyboardAwareScrollView
-      ref={scrollRef as never}
-      bottomOffset={spacing.lg}
-      // Closing the keyboard (e.g. tapping Speak while typing) must not move the page.
-      disableScrollOnKeyboardHide
+    <ScrollView
+      ref={scrollRef}
       style={styles.screen}
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
@@ -264,142 +307,114 @@ export function LogScreen() {
     >
       {target ? <TargetChip mealType={target.mealType} dateKey={target.dateKey} /> : null}
 
-      <Card style={styles.describe}>
-        <View style={styles.head}>
-          <Text style={styles.describeTitle}>{listening ? 'Listening…' : 'What did you eat?'}</Text>
-          {hasText && !voice.active && !photo ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Clear"
-              hitSlop={8}
-              onPress={() => {
-                void Haptics.selectionAsync();
-                setDraft('');
-                base.current = '';
-                setMessage(null);
-                voice.clearError();
-              }}
-              style={({ pressed }) => [styles.clear, pressed && styles.pressed]}
-            >
-              <Icon name="xmark" size={13} color={colors.textSecondary} weight="bold" />
-            </Pressable>
-          ) : null}
-        </View>
-
-        {photo ? (
-          <PhotoScan
-            uri={photo.uri}
-            error={photoError}
-            onRetry={() => void estimatePhoto(photo)}
-            onDiscard={() => {
-              setPhoto(null);
-              setPhotoError(null);
-            }}
-          />
-        ) : voice.active ? (
-          // Plain text while listening: an editable field would scroll the page to chase its caret as words arrive.
-          <Text style={[styles.input, styles.transcript, !draft && styles.transcriptEmpty]} accessibilityLiveRegion="polite">
-            {draft || example}
-          </Text>
-        ) : (
-          <TextInput
-            ref={inputRef}
-            value={draft}
-            onChangeText={(text) => {
-              setDraft(text);
-              setMessage(null);
-              voice.clearError();
-            }}
-            multiline
-            scrollEnabled={false}
-            placeholder={example}
-            placeholderTextColor={colors.textTertiary}
-            keyboardAppearance="light"
-            returnKeyType="done"
-            submitBehavior="blurAndSubmit"
-            onSubmitEditing={() => {
-              if (hasText) void review(preferAI ? 'ai' : 'local');
-            }}
-            accessibilityLabel="What you ate"
-            style={styles.input}
-          />
-        )}
-
-        {!photo && parsed.items.length > 0 ? (
-          <Animated.View layout={reduceMotion ? undefined : LinearTransition.springify().damping(20)} style={styles.parsed}>
-            {parsed.items.map((item, index) => (
-              <Animated.View
-                key={`${item.heard}-${index}`}
-                entering={reduceMotion ? undefined : FadeIn.duration(180)}
-                exiting={reduceMotion ? undefined : FadeOut.duration(120)}
-                style={styles.parsedRow}
+      <Animated.View style={[styles.cardWrap, glowStyle]}>
+        <Card style={styles.describe}>
+          <View style={styles.head}>
+            <Text style={styles.describeTitle} accessibilityRole="header">
+              {listening ? 'Listening…' : PROMPTS[target?.mealType ?? suggestedMeal(new Date())]}
+            </Text>
+            {hasText && !voice.active && !photo ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear"
+                hitSlop={8}
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  setDraft('');
+                  base.current = '';
+                  setAiPick(null);
+                  setMessage(null);
+                  voice.clearError();
+                }}
+                style={({ pressed }) => [styles.clear, pressed && styles.pressed]}
               >
-                <View style={[styles.parsedDot, { backgroundColor: item.unresolved ? colors.fillStrong : colors.accent }]} />
-                <Text style={[styles.parsedName, item.unresolved && styles.parsedUnknown]} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <Text style={styles.parsedMeta}>{item.unresolved ? '' : portionLabel(item)}</Text>
-                <Text style={styles.parsedKcal}>{item.unresolved ? '–' : Math.round(item.macros.calories)}</Text>
-              </Animated.View>
-            ))}
-            <View style={styles.parsedTotal}>
-              <Text style={styles.parsedTotalLabel}>Total</Text>
-              <Text style={styles.parsedTotalValue}>{Math.round(total).toLocaleString()} kcal</Text>
-            </View>
-          </Animated.View>
-        ) : null}
-
-        {photo ? null : voice.active ? (
-          <RecordingBar
-            level={voice.level}
-            finishing={voice.status === 'finishing'}
-            onCancel={voice.cancel}
-            onDone={voice.stop}
-          />
-        ) : hasText ? (
-          <View style={styles.actions}>
-            <View style={styles.actionRow}>
-              <IconButton icon="mic.fill" label="Add by voice" onPress={() => void startListening()} />
-              <GlassButton
-                label={busy === 'ai' ? 'Estimating…' : preferAI ? 'Review with AI' : 'Review'}
-                icon={busy ? undefined : preferAI ? 'sparkles' : 'arrow.right'}
-                variant="primary"
-                disabled={Boolean(busy)}
-                onPress={() => void review(preferAI ? 'ai' : 'local')}
-                style={styles.flex}
-              />
-            </View>
-            {preferAI ? (
-              <GlassButton label="Review as heard" variant="tonal" disabled={Boolean(busy)} onPress={() => void review('local')} />
-            ) : null}
-          </View>
-        ) : (
-          <View style={styles.capture}>
-            <GlassButton label="Speak" icon="mic.fill" variant="primary" onPress={() => void startListening()} style={styles.flex} />
-            <GlassButton
-              label="Photo"
-              icon="camera.fill"
-              variant="primary"
-              onPress={() => {
-                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                void takePhoto('camera');
-              }}
-              style={styles.flex}
-            />
-          </View>
-        )}
-
-        {error ? (
-          <View style={styles.error} accessibilityRole="alert">
-            <Text style={styles.errorText}>{error}</Text>
-            {voice.error?.needsSettings ? (
-              <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()}>
-                <Text style={styles.errorAction}>Open Settings</Text>
+                <Icon name="xmark" size={13} color={colors.textSecondary} weight="bold" />
               </Pressable>
             ) : null}
           </View>
-        ) : null}
-      </Card>
+
+          {photo ? (
+            <PhotoScan
+              uri={photo.uri}
+              error={photoError}
+              onRetry={() => void estimatePhoto(photo)}
+              onDiscard={() => {
+                setPhoto(null);
+                setPhotoError(null);
+              }}
+            />
+          ) : (
+            <>
+              {voice.active ? (
+                // Plain text while listening: an editable field would scroll the page to chase its caret as words arrive.
+                <Text style={[styles.input, !draft && styles.inputEmpty]} accessibilityLiveRegion="polite">
+                  {draft || example}
+                </Text>
+              ) : (
+                <TextInput
+                  ref={inputRef}
+                  value={draft}
+                  onChangeText={(text) => {
+                    setDraft(text);
+                    setMessage(null);
+                    voice.clearError();
+                  }}
+                  multiline
+                  placeholder={example}
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardAppearance="light"
+                  returnKeyType="done"
+                  submitBehavior="blurAndSubmit"
+                  onSubmitEditing={() => {
+                    if (hasText) void review(mode);
+                  }}
+                  accessibilityLabel="What you ate"
+                  style={styles.input}
+                />
+              )}
+
+              {hasText || parsed.items.length > 0 ? (
+                <MealPlate
+                  items={parsed.items}
+                  choice={offerAI && !voice.active ? { value: mode, onChange: setAiPick } : null}
+                  onAddMore={voice.active ? undefined : () => void startListening()}
+                />
+              ) : null}
+
+              {voice.active ? (
+                <RecordingBar level={voice.level} finishing={voice.status === 'finishing'} onCancel={voice.cancel} onDone={voice.stop} />
+              ) : hasText ? (
+                <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(200)}>
+                  <GlassButton
+                    label={busy === 'ai' ? 'Estimating…' : 'Review'}
+                    icon={busy || mode !== 'ai' ? undefined : 'sparkles'}
+                    variant="primary"
+                    disabled={Boolean(busy)}
+                    onPress={() => void review(mode)}
+                  />
+                </Animated.View>
+              ) : (
+                <View style={styles.tiles}>
+                  <CaptureTile icon="mic.fill" label="Speak" onPress={() => void startListening()} />
+                  <CaptureTile icon="camera.fill" label="Photo" onPress={() => void takePhoto('camera')} />
+                </View>
+              )}
+            </>
+          )}
+
+          {error ? (
+            <View style={styles.error} accessibilityRole="alert">
+              <Text style={styles.errorText}>{error}</Text>
+              {voice.error?.needsSettings ? (
+                <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()}>
+                  <Text style={styles.errorAction}>Open Settings</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+        </Card>
+        <Animated.View pointerEvents="none" style={[styles.glowEdge, edgeStyle]} />
+      </Animated.View>
 
       <View style={[styles.methods, largeText && styles.methodsStacked]}>
         <Method icon="magnifyingglass" title="Search" onPress={() => router.push('/search')} />
@@ -438,7 +453,8 @@ export function LogScreen() {
           </ScrollView>
         </>
       ) : null}
-    </KeyboardAwareScrollView>
+      <Animated.View style={keyboardSpace} />
+    </ScrollView>
   );
 }
 
@@ -463,19 +479,22 @@ function TargetChip({ mealType, dateKey }: { mealType: Parameters<typeof mealLab
   );
 }
 
-/** A round soft-accent icon button that sits beside the primary action. */
-function IconButton({ icon, label, onPress }: { icon: SFSymbol; label: string; onPress: () => void }) {
+/** One of the two equal ways to start: a soft tile with its symbol in an accent disc. */
+function CaptureTile({ icon, label, onPress }: { icon: SFSymbol; label: string; onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={() => {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         onPress();
       }}
-      style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
     >
-      <Icon name={icon} size={20} color={colors.accent} />
+      <View style={styles.tileDisc}>
+        <Icon name={icon} size={22} color={colors.onAccent} />
+      </View>
+      <Text style={styles.tileLabel}>{label}</Text>
     </Pressable>
   );
 }
@@ -506,9 +525,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.gutter,
     paddingTop: spacing.xs,
     paddingBottom: spacing.xl,
-  },
-  flex: {
-    flex: 1,
   },
   pressed: {
     opacity: 0.7,
@@ -543,99 +559,78 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.fill,
   },
-  transcript: {
-    color: colors.textPrimary,
+  cardWrap: {
+    borderRadius: radius.lg,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
   },
-  transcriptEmpty: {
-    color: colors.textTertiary,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm + 2,
-  },
-  iconButton: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accentSoft,
+  glowEdge: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: radius.lg,
+    borderCurve: 'continuous',
+    borderWidth: 1.5,
+    borderColor: withAlpha(colors.accent, 0.55),
   },
   describe: {
     padding: spacing.lg - 2,
-    gap: spacing.md,
+    paddingTop: spacing.lg,
+    gap: spacing.lg - 4,
   },
   describeTitle: {
     ...typography.title,
-    color: colors.textPrimary,
-  },
-  input: {
-    ...typography.body,
-    fontSize: 20,
-    lineHeight: 27,
-    color: colors.textPrimary,
-    minHeight: 81,
-    padding: 0,
-    textAlignVertical: 'top',
-  },
-  parsed: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.hairline,
-    paddingTop: spacing.sm,
-    gap: 2,
-  },
-  parsedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    minHeight: 30,
-  },
-  parsedDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-  },
-  parsedName: {
-    ...typography.subheadline,
+    fontSize: 24,
+    letterSpacing: -0.5,
     color: colors.textPrimary,
     flexShrink: 1,
   },
-  parsedUnknown: {
+  input: {
+    ...typography.body,
+    fontSize: 21,
+    lineHeight: 28,
+    letterSpacing: -0.4,
+    color: colors.textPrimary,
+    minHeight: 56,
+    padding: 0,
+    marginTop: -spacing.sm,
+    textAlignVertical: 'top',
+  },
+  inputEmpty: {
     color: colors.textTertiary,
   },
-  parsedMeta: {
-    ...typography.footnote,
-    color: colors.textTertiary,
+  tiles: {
+    flexDirection: 'row',
+    gap: spacing.sm + 4,
+  },
+  tile: {
     flex: 1,
-  },
-  parsedKcal: {
-    ...typography.statSmall,
-    color: colors.textPrimary,
-  },
-  parsedTotal: {
-    flexDirection: 'row',
+    minHeight: 118,
     justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginTop: spacing.xs,
+    padding: spacing.md,
+    borderRadius: radius.lg - 4,
+    borderCurve: 'continuous',
+    backgroundColor: colors.accentSoft,
   },
-  parsedTotalLabel: {
-    ...typography.footnote,
-    color: colors.textSecondary,
+  tilePressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.97 }],
   },
-  parsedTotalValue: {
-    ...typography.statSmall,
-    fontSize: 17,
+  tileDisc: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  tileLabel: {
+    ...typography.headline,
+    fontSize: 18,
     color: colors.textPrimary,
-  },
-  capture: {
-    flexDirection: 'row',
-    gap: spacing.sm + 2,
-    marginTop: spacing.xs,
-  },
-  actions: {
-    gap: spacing.sm,
-    marginTop: spacing.xs,
   },
   error: {
     gap: 4,

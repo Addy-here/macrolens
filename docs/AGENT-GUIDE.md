@@ -119,8 +119,15 @@ Keys: `seed`, `clear`, `go` (URL-encoded route), `y`, `review`, `action`,
 `today.addLunch`, `search.addFirst`, `settings.export`, `toast.action`,
 `log.simulateListening` (fakes a voice level and transcript, since real
 recognition can't run in this simulator), `log.focus`, `log.simulatePhoto`,
-`log.simulatePhotoError`, `plan.focusWeight`, `settings.focusKey` (the last
-two open the keyboard on that field).
+`log.simulatePhotoError`, `log.pickHeard`, `log.blur`, `plan.focusWeight`,
+`settings.focusKey` (the last two open the keyboard on that field).
+
+Test keyboard behaviour with the on-screen keyboard. If focusing a field
+shows no keyboard, the simulator thinks a hardware keyboard is attached and
+keyboard libraries mis-measure, so page jumps you see then aren't real.
+Shut the simulator down, run `plutil -replace HardwareKeyboardLastSeen -bool NO
+~/Library/Developer/CoreSimulator/Devices/<udid>/data/Library/Preferences/com.apple.keyboard.preferences.plist`,
+and boot it again.
 
 Before calling UI work done, capture every screen it touches empty, filled,
 with the keyboard up, and at large text
