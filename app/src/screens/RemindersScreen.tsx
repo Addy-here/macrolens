@@ -72,7 +72,6 @@ export function RemindersScreen() {
         value={new Date(2000, 0, 1, reminder.hour, reminder.minute)}
         mode="time"
         display="compact"
-        minuteInterval={5}
         accentColor={colors.accent}
         themeVariant="light"
         accessibilityLabel={`${title} reminder time`}
