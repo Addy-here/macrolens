@@ -21,6 +21,7 @@ export function ListRow({
   accessory = 'none',
   selected,
   first = false,
+  destructive = false,
   onPress,
 }: {
   icon?: SFSymbol;
@@ -32,6 +33,8 @@ export function ListRow({
   accessory?: Accessory;
   selected?: boolean;
   first?: boolean;
+  /** Red title, for an action that deletes. */
+  destructive?: boolean;
   onPress?: () => void;
 }) {
   const content = (
@@ -42,8 +45,8 @@ export function ListRow({
         </View>
       ) : null}
       <View style={[styles.body, !first && styles.divider]}>
-        <View style={styles.text}>
-          <Text style={styles.title} numberOfLines={1}>
+        <View style={value ? styles.textBesideValue : styles.text}>
+          <Text style={[styles.title, destructive && styles.destructive]} numberOfLines={2}>
             {title}
           </Text>
           {subtitle ? (
@@ -52,7 +55,11 @@ export function ListRow({
             </Text>
           ) : null}
         </View>
-        {value ? <Text style={styles.value}>{value}</Text> : null}
+        {value ? (
+          <Text style={styles.value} numberOfLines={2}>
+            {value}
+          </Text>
+        ) : null}
         {trailing}
         {accessory === 'chevron' ? (
           <Icon name="chevron.right" size={13} color={colors.textTertiary} weight="bold" />
@@ -139,9 +146,18 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  // A short title keeps its width and a long value wraps instead. (Not `flex: 1`, whose zero basis lets the title collapse.)
+  textBesideValue: {
+    flexGrow: 1,
+    flexShrink: 0,
+    gap: 2,
+  },
   title: {
     ...typography.body,
     color: colors.textPrimary,
+  },
+  destructive: {
+    color: colors.danger,
   },
   subtitle: {
     ...typography.footnote,
@@ -150,6 +166,8 @@ const styles = StyleSheet.create({
   value: {
     ...typography.body,
     color: colors.textSecondary,
+    flexShrink: 1,
+    textAlign: 'right',
   },
   check: {
     width: 18,

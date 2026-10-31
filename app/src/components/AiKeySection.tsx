@@ -62,7 +62,7 @@ export function AiKeySection() {
 
   return (
     <View>
-      <GroupLabel>AI</GroupLabel>
+      <GroupLabel>Provider</GroupLabel>
       <Card padded={false}>
         {AI_PROVIDERS.map((item, index) => (
           <ListRow

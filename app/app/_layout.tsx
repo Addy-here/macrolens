@@ -9,6 +9,7 @@ import { ToastHost } from '../src/components/ui/ToastHost';
 import { DevBridge } from '../src/dev/DevBridge';
 import { colors } from '../src/theme';
 import { useAiKeyStore } from '../src/store/useAiKeyStore';
+import { useReminders } from '../src/services/reminders';
 
 Appearance.setColorScheme('light');
 
@@ -20,6 +21,7 @@ Appearance.setColorScheme('light');
  */
 export default function RootLayout() {
   const hydrate = useAiKeyStore((s) => s.hydrate);
+  useReminders();
 
   useEffect(() => {
     void hydrate();
@@ -62,6 +64,26 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="food-editor"
+            options={{
+              presentation: 'modal',
+              headerShown: true,
+              headerShadowVisible: false,
+              headerStyle: { backgroundColor: colors.background },
+              contentStyle: { backgroundColor: colors.background },
+            }}
+          />
+          <Stack.Screen
+            name="plan-editor"
+            options={{
+              presentation: 'modal',
+              headerShown: true,
+              headerShadowVisible: false,
+              headerStyle: { backgroundColor: colors.background },
+              contentStyle: { backgroundColor: colors.background },
+            }}
+          />
+          <Stack.Screen
+            name="weigh-in"
             options={{
               presentation: 'modal',
               headerShown: true,

@@ -80,7 +80,20 @@ one app, wrapped in an iOS 18 "Liquid Glass" visual language.
      language: "You lost less than expected, so we trimmed 80 kcal/day"),
      and a projected trend line to goal.
 
-6. **iOS "Liquid Glass" UI**
+6. **Plan and settings — the basic suite** (2026-10-30)
+   - Plan editor: lose / maintain / gain, goal weight, pace, body, activity,
+     macro presets (balanced, high protein, low carb, low fat, keto) or a
+     custom split, a custom daily target, and extra calories on weekends.
+   - Measured maintenance and a weekly check-in that proposes the next
+     target and says why.
+   - Weigh-in history with edit and delete; weigh-ins on any past day.
+   - Units for everything: kg / lb / st, cm / ft in, kcal / kJ, g / oz,
+     ml / fl oz. Week starts Sunday or Monday.
+   - Meal and weigh-in reminders, skipped once that's logged.
+   - Water tracking on Today.
+   - CSV export and Delete All Data, beside backup and restore.
+
+7. **iOS "Liquid Glass" UI**
    - See `docs/DESIGN-SYSTEM.md` for the full spec. Short version: frosted
      translucent surfaces (BlurView), soft depth/shadow, SF-Pro-like
      typography, spring-based motion, dark-first.

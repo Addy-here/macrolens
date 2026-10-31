@@ -13,8 +13,13 @@ import { WeekStrip } from '../components/ui/WeekStrip';
 import { colors, spacing, typography } from '../theme';
 import { useFoodLogStore } from '../store/useFoodLogStore';
 import { usePlanStore } from '../store/usePlanStore';
+import { useSettingsStore, useUnits, type BoundUnits } from '../store/useSettingsStore';
+import { useUserStore } from '../store/useUserStore';
+import { useWaterStore } from '../store/useWaterStore';
+import { GlassButton } from '../components/glass';
 import { useDevAction, useDevAutoScroll } from '../dev/devScroll';
-import { dateFromKey, entryDateKey, localDateKey } from '../utils/date';
+import { addDays, dateFromKey, entryDateKey, localDateKey, startOfWeek } from '../utils/date';
+import { targetsForDate } from '../utils/planCalculator';
 import { microTargets, sumMacros, sumMicros } from '../utils/macros';
 import { entryTitle, MEALS, timeLabel, type MealSymbol, type MealType } from '../utils/meals';
 import { deleteEntryWithUndo, stageAgain, stageEdit } from '../services/logFlow';
@@ -41,9 +46,14 @@ export function HomeScreen() {
   const [selectedKey, setSelectedKey] = useState(todayKey);
   const entries = useFoodLogStore((s) => s.entries);
   const plan = usePlanStore((s) => s.currentPlan);
+  const hasProfile = useUserStore((s) => Boolean(s.profile));
+  const weekStartsOn = useSettingsStore((s) => s.weekStartsOn);
+  const water = useSettingsStore((s) => s.water);
+  const u = useUnits();
   const scrollRef = useDevAutoScroll('today');
 
-  const target = plan?.targetMacros ?? DEFAULT_TARGET;
+  // With a weekend shift, each day has its own target.
+  const target = useMemo(() => targetsForDate(plan, dateFromKey(selectedKey), DEFAULT_TARGET), [plan, selectedKey]);
 
   const caloriesByDay = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -52,9 +62,11 @@ export function HomeScreen() {
       totals[key] = (totals[key] ?? 0) + entry.totalMacros.calories;
     }
     const progress: Record<string, number> = {};
-    for (const key of Object.keys(totals)) progress[key] = totals[key] / target.calories;
+    for (const key of Object.keys(totals)) {
+      progress[key] = totals[key] / targetsForDate(plan, dateFromKey(key), DEFAULT_TARGET).calories;
+    }
     return progress;
-  }, [entries, target.calories]);
+  }, [entries, plan]);
 
   const dayEntries = useMemo(
     () =>
@@ -118,10 +130,23 @@ export function HomeScreen() {
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
       >
-        <Text style={styles.dateLine}>{dateLine}</Text>
-        <WeekStrip selectedKey={selectedKey} onSelect={setSelectedKey} progressByDay={caloriesByDay} />
+        <View style={styles.dateRow}>
+          <Text style={styles.dateLine}>{dateLine}</Text>
+          <WeekButton direction={-1} onPress={() => setSelectedKey(localDateKey(addDays(dateFromKey(selectedKey), -7)))} />
+          <WeekButton
+            direction={1}
+            disabled={localDateKey(addDays(startOfWeek(dateFromKey(selectedKey), weekStartsOn), 7)) > todayKey}
+            onPress={() => {
+              const next = localDateKey(addDays(dateFromKey(selectedKey), 7));
+              setSelectedKey(next > todayKey ? todayKey : next);
+            }}
+          />
+        </View>
+        <WeekStrip selectedKey={selectedKey} onSelect={setSelectedKey} progressByDay={caloriesByDay} weekStartsOn={weekStartsOn} />
 
-        <CalorieCard eaten={totals.calories} target={target.calories} />
+        {!hasProfile ? <SetupPrompt /> : null}
+
+        <CalorieCard eaten={totals.calories} target={target.calories} u={u} />
 
         <View style={styles.macroRow}>
           <MacroCard label="Protein" value={totals.proteinG} target={target.proteinG} color={colors.protein} />
@@ -136,6 +161,8 @@ export function HomeScreen() {
           <Nutrient known={hasMicros} label="Sodium" value={micros.sodiumMg} goal={microGoals.sodiumMg} unit="mg" limit />
         </Card>
 
+        {water.enabled ? <WaterCard dateKey={selectedKey} u={u} /> : null}
+
         <SectionHeader
           title="Meals"
           trailing={dayEntries.length > 0 ? `${dayEntries.length} logged` : undefined}
@@ -149,6 +176,7 @@ export function HomeScreen() {
               mealType={meal.key}
               dateKey={selectedKey}
               entries={dayEntries.filter((entry) => entry.mealType === meal.key)}
+              u={u}
             />
           ))}
         </View>
@@ -157,7 +185,7 @@ export function HomeScreen() {
   );
 }
 
-function CalorieCard({ eaten, target }: { eaten: number; target: number }) {
+function CalorieCard({ eaten, target, u }: { eaten: number; target: number; u: BoundUnits }) {
   const left = Math.round(target - eaten);
   const over = left < 0;
   return (
@@ -165,16 +193,16 @@ function CalorieCard({ eaten, target }: { eaten: number; target: number }) {
       <View
         style={styles.heroText}
         accessible
-        accessibilityLabel={`${Math.abs(left)} calories ${over ? 'over' : 'left'}. ${Math.round(
+        accessibilityLabel={`${u.energySpoken(Math.abs(left))} ${over ? 'over' : 'left'}. ${u.energyNumber(
           eaten,
-        )} eaten of ${target}.`}
+        )} eaten of ${u.energyNumber(target)}.`}
       >
-        <Text style={styles.heroNumber} numberOfLines={1} adjustsFontSizeToFit>{Math.abs(left).toLocaleString()}</Text>
-        <Text style={styles.heroCaption}>{over ? 'Calories over' : 'Calories left'}</Text>
+        <Text style={styles.heroNumber} numberOfLines={1} adjustsFontSizeToFit>{u.energyNumber(Math.abs(left))}</Text>
+        <Text style={styles.heroCaption}>{`${u.energyName} ${over ? 'over' : 'left'}`}</Text>
         <View style={styles.heroStats}>
-          <HeroStat label="Eaten" value={Math.round(eaten)} />
+          <HeroStat label="Eaten" value={u.energyNumber(eaten)} />
           <View style={styles.heroDivider} />
-          <HeroStat label="Target" value={target} />
+          <HeroStat label="Target" value={u.energyNumber(target)} />
         </View>
       </View>
       <ProgressRing progress={target > 0 ? eaten / target : 0} color={colors.calories} size={116} strokeWidth={12}>
@@ -184,10 +212,10 @@ function CalorieCard({ eaten, target }: { eaten: number; target: number }) {
   );
 }
 
-function HeroStat({ label, value }: { label: string; value: number }) {
+function HeroStat({ label, value }: { label: string; value: string }) {
   return (
     <View>
-      <Text style={styles.heroStatValue}>{value.toLocaleString()}</Text>
+      <Text style={styles.heroStatValue}>{value}</Text>
       <Text style={styles.heroStatLabel}>{label}</Text>
     </View>
   );
@@ -258,7 +286,9 @@ function Nutrient({
       accessible
       accessibilityLabel={`${label} ${Math.round(value)} ${unit === 'mg' ? 'milligrams' : 'grams'}, ${limit ? 'limit' : 'goal'} ${goal}`}
     >
-      <Text style={styles.nutrientLabel}>{label}</Text>
+      <Text style={styles.nutrientLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+        {label}
+      </Text>
       <Text style={styles.nutrientValue}>
         {shown}
         <Text style={styles.nutrientUnit}> {unit}</Text>
@@ -274,12 +304,14 @@ function MealCard({
   mealType,
   dateKey,
   entries,
+  u,
 }: {
   label: string;
   symbol: MealSymbol;
   mealType: MealType;
   dateKey: string;
   entries: FoodLogEntry[];
+  u: BoundUnits;
 }) {
   const calories = Math.round(entries.reduce((sum, entry) => sum + entry.totalMacros.calories, 0));
 
@@ -287,7 +319,7 @@ function MealCard({
     <Card padded={false}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${label}, ${entries.length ? `${calories} calories` : 'nothing logged'}`}
+        accessibilityLabel={`${label}, ${entries.length ? u.energySpoken(calories) : 'nothing logged'}`}
         accessibilityHint={`Log something to ${label.toLowerCase()}`}
         onPress={() => {
           void Haptics.selectionAsync();
@@ -299,20 +331,20 @@ function MealCard({
         <Icon name={symbol} size={17} color={colors.textSecondary} />
         <Text style={styles.mealTitle}>{label}</Text>
         <Text style={styles.mealCalories}>
-          {entries.length ? `${calories.toLocaleString()} kcal` : 'Nothing yet'}
+          {entries.length ? u.energyText(calories) : 'Nothing yet'}
         </Text>
         <View style={styles.addButton}>
           <Icon name="plus" size={13} color={colors.accent} weight="bold" />
         </View>
       </Pressable>
       {entries.map((entry) => (
-        <EntryRow key={entry.id} entry={entry} />
+        <EntryRow key={entry.id} entry={entry} u={u} />
       ))}
     </Card>
   );
 }
 
-function EntryRow({ entry }: { entry: FoodLogEntry }) {
+function EntryRow({ entry, u }: { entry: FoodLogEntry; u: BoundUnits }) {
   const title = entryTitle(entry.items);
 
   const edit = () => {
@@ -356,7 +388,7 @@ function EntryRow({ entry }: { entry: FoodLogEntry }) {
       onPress={edit}
       onLongPress={showActions}
       accessibilityRole="button"
-      accessibilityLabel={`${title}, ${Math.round(entry.totalMacros.calories)} calories, ${timeLabel(entry.loggedAt)}`}
+      accessibilityLabel={`${title}, ${u.energySpoken(entry.totalMacros.calories)}, ${timeLabel(entry.loggedAt)}`}
       accessibilityHint="Opens the meal to edit it"
       accessibilityActions={[
         { name: 'again', label: 'Log again today' },
@@ -377,10 +409,90 @@ function EntryRow({ entry }: { entry: FoodLogEntry }) {
         <MacroMarks macros={entry.totalMacros} />
       </View>
       <View style={styles.entryKcal}>
-        <Text style={styles.entryKcalValue}>{Math.round(entry.totalMacros.calories)}</Text>
-        <Text style={styles.entryKcalUnit}>kcal</Text>
+        <Text style={styles.entryKcalValue}>{u.energyNumber(entry.totalMacros.calories)}</Text>
+        <Text style={styles.entryKcalUnit}>{u.energy}</Text>
       </View>
     </Pressable>
+  );
+}
+
+function WeekButton({ direction, disabled, onPress }: { direction: 1 | -1; disabled?: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={direction < 0 ? 'Previous week' : 'Next week'}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      hitSlop={6}
+      onPress={() => {
+        void Haptics.selectionAsync();
+        onPress();
+      }}
+      style={({ pressed }) => [styles.weekButton, pressed && styles.weekButtonPressed]}
+    >
+      <Icon
+        name={direction < 0 ? 'chevron.left' : 'chevron.right'}
+        size={13}
+        color={disabled ? colors.textTertiary : colors.accent}
+        weight="bold"
+      />
+    </Pressable>
+  );
+}
+
+function SetupPrompt() {
+  return (
+    <Card style={styles.setup}>
+      <View style={styles.setupText}>
+        <Text style={styles.setupTitle}>Set up your plan</Text>
+        <Text style={styles.setupBody}>Get a daily target from your goal, body, and activity.</Text>
+      </View>
+      <GlassButton label="Set Up" variant="tonal" onPress={() => router.push('/plan-editor')} />
+    </Card>
+  );
+}
+
+/** Water for the day: the amount against the goal, and a glass at a time. */
+function WaterCard({ dateKey, u }: { dateKey: string; u: BoundUnits }) {
+  const ml = useWaterStore((s) => s.byDay[dateKey] ?? 0);
+  const { goalMl, glassMl } = useSettingsStore((s) => s.water);
+  const add = (direction: 1 | -1) => {
+    if (direction < 0 && ml === 0) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    useWaterStore.getState().add(dateKey, direction * glassMl);
+  };
+  return (
+    <Card style={styles.water}>
+      <View style={styles.waterTop}>
+        <Icon name="drop.fill" size={16} color={colors.textSecondary} />
+        <View style={styles.waterText} accessible accessibilityLabel={`Water, ${u.waterText(ml)} of ${u.waterText(goalMl)}`}>
+          <Text style={styles.waterValue}>
+            {u.waterText(ml)}
+            <Text style={styles.waterGoal}> of {u.waterText(goalMl)}</Text>
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Remove a glass, ${u.waterText(glassMl)}`}
+          disabled={ml === 0}
+          hitSlop={6}
+          onPress={() => add(-1)}
+          style={[styles.waterButton, styles.waterMinus, ml === 0 && styles.waterDisabled]}
+        >
+          <Icon name="minus" size={13} color={colors.textPrimary} weight="bold" />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Add a glass, ${u.waterText(glassMl)}`}
+          hitSlop={6}
+          onPress={() => add(1)}
+          style={styles.waterButton}
+        >
+          <Icon name="plus" size={13} color={colors.accent} weight="bold" />
+        </Pressable>
+      </View>
+      <ProgressBar progress={goalMl > 0 ? ml / goalMl : 0} color={colors.water} height={6} />
+    </Card>
   );
 }
 
@@ -392,7 +504,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.gutter,
     paddingTop: spacing.xs,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.tabBottom,
   },
   headerButton: {
     paddingHorizontal: spacing.sm,
@@ -402,12 +514,84 @@ const styles = StyleSheet.create({
     ...typography.headline,
     color: colors.accent,
   },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm + 4,
+    marginTop: -spacing.xs - 4,
+  },
   dateLine: {
     ...typography.footnote,
     fontWeight: '500',
     color: colors.textSecondary,
-    marginBottom: spacing.md,
-    marginTop: -spacing.xs,
+    flex: 1,
+  },
+  weekButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.fill,
+  },
+  weekButtonPressed: {
+    opacity: 0.6,
+  },
+  setup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.sm + 2,
+  },
+  setupText: {
+    flex: 1,
+    gap: 2,
+  },
+  setupTitle: {
+    ...typography.headline,
+    color: colors.textPrimary,
+  },
+  setupBody: {
+    ...typography.footnote,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  water: {
+    gap: spacing.sm + 2,
+    marginTop: spacing.sm + 2,
+    paddingVertical: spacing.md - 4,
+  },
+  waterTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + 2,
+  },
+  waterText: {
+    flex: 1,
+  },
+  waterValue: {
+    ...typography.statSmall,
+    fontSize: 17,
+    color: colors.textPrimary,
+  },
+  waterGoal: {
+    ...typography.footnote,
+    color: colors.textTertiary,
+  },
+  waterButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accentSoft,
+  },
+  waterMinus: {
+    backgroundColor: colors.fill,
+  },
+  waterDisabled: {
+    opacity: 0.4,
   },
   hero: {
     flexDirection: 'row',

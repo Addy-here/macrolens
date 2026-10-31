@@ -4,7 +4,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useFoodLibraryStore, type LibraryFood } from '../store/useFoodLibraryStore';
 import { useFoodLogStore } from '../store/useFoodLogStore';
 import { usePlanStore } from '../store/usePlanStore';
+import { useSettingsStore, type Reminder, type ReminderKey, type WaterSettings } from '../store/useSettingsStore';
 import { useUserStore } from '../store/useUserStore';
+import { useWaterStore } from '../store/useWaterStore';
+import type { Units } from '../utils/units';
 import { localDateKey } from '../utils/date';
 import type { AdaptivePlan, FoodLogEntry, UserProfile, WeightEntry } from '../types';
 
@@ -26,6 +29,10 @@ export interface Backup {
   links: Record<string, string>;
   /** Meal photos by file name, base64. */
   photos: Record<string, string>;
+  /** Millilitres by day. Added after version 1 shipped; older backups don't have it. */
+  water?: Record<string, number>;
+  /** Units and preferences. Optional for the same reason. */
+  settings?: { units: Units; weekStartsOn: 0 | 1; water: WaterSettings; reminders: Record<ReminderKey, Reminder> };
 }
 
 const PHOTO_FOLDER = 'meal-photos';
@@ -53,6 +60,10 @@ export async function exportBackup() {
     foods,
     links,
     photos,
+    water: useWaterStore.getState().byDay,
+    settings: (({ units, weekStartsOn, water, reminders }) => ({ units, weekStartsOn, water, reminders }))(
+      useSettingsStore.getState(),
+    ),
   };
 
   const file = new File(Paths.cache, `Macrolens backup ${localDateKey(new Date())}.json`);
@@ -96,6 +107,8 @@ export async function pickBackup(): Promise<BackupSummary | null> {
     foods: Array.isArray(backup.foods) ? backup.foods : [],
     links: backup.links && typeof backup.links === 'object' ? backup.links : {},
     photos: backup.photos && typeof backup.photos === 'object' ? backup.photos : {},
+    water: backup.water && typeof backup.water === 'object' ? backup.water : undefined,
+    settings: backup.settings && typeof backup.settings === 'object' ? backup.settings : undefined,
   };
   return {
     backup: complete,
@@ -123,4 +136,14 @@ export async function restoreBackup(backup: Backup) {
   usePlanStore.setState({ currentPlan: backup.plan, weightHistory: backup.weights });
   useFoodLogStore.setState({ entries: backup.entries });
   useFoodLibraryStore.setState({ foods: backup.foods, links: backup.links });
+  useWaterStore.setState({ byDay: backup.water ?? {} });
+  if (backup.settings) {
+    const current = useSettingsStore.getState();
+    useSettingsStore.setState({
+      units: { ...current.units, ...backup.settings.units },
+      weekStartsOn: backup.settings.weekStartsOn ?? current.weekStartsOn,
+      water: { ...current.water, ...backup.settings.water },
+      reminders: { ...current.reminders, ...backup.settings.reminders },
+    });
+  }
 }

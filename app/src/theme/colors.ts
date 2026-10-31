@@ -32,6 +32,9 @@ export const colors = {
   carbs: '#2F7CF6',
   fat: '#1F9D63',
 
+  /** Water on Today. Not a nutrient; teal so it never reads as carbs. */
+  water: '#30B0C7',
+
   success: '#1F9D63',
   danger: '#FF3B30',
   dangerSoft: 'rgba(255, 59, 48, 0.12)',

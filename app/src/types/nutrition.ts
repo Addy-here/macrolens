@@ -76,6 +76,22 @@ export interface UserProfile {
   activityLevel: ActivityLevel;
   birthYear: number;
   sex: 'male' | 'female' | 'other';
+  /** How the target splits into protein, carbs, and fat. Balanced when missing. */
+  dietStyle?: DietStyle;
+  /** Percent of energy from protein, carbs, fat when dietStyle is 'custom'. Sums to 100. */
+  customSplit?: MacroSplit;
+  /** A daily target the person set themselves, in kcal. Turns off the calculated target and weekly check-ins. */
+  calorieOverride?: number | null;
+  /** Extra kcal on Saturday and Sunday, taken evenly from the weekdays so the week's total is unchanged. */
+  weekendExtraKcal?: number;
+}
+
+export type DietStyle = 'balanced' | 'high-protein' | 'low-carb' | 'low-fat' | 'keto' | 'custom';
+
+export interface MacroSplit {
+  protein: number;
+  carbs: number;
+  fat: number;
 }
 
 /** The current adaptive plan — recalculated weekly, see docs/PRODUCT.md. */
@@ -87,4 +103,12 @@ export interface AdaptivePlan {
   changeReason?: string;
   /** Previous week's targets, for diffing in the UI. */
   previousTargetCalories?: number;
+  /** Estimated maintenance (TDEE) the target was built from, in kcal. */
+  maintenanceCalories?: number;
+  /** Where maintenance came from: the formula, measured intake and trend, or a target the person typed. */
+  basis?: 'formula' | 'measured' | 'custom';
+  /** The target was raised to the minimum for safety. */
+  floored?: boolean;
+  /** Extra kcal on weekend days (weekdays carry less). Copied from the profile. */
+  weekendExtraKcal?: number;
 }

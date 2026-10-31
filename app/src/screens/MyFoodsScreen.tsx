@@ -7,6 +7,7 @@ import { GroupLabel } from '../components/ui/ListRow';
 import { colors, spacing, typography } from '../theme';
 import { useFoodLibraryStore, type LibraryFood } from '../store/useFoodLibraryStore';
 import { itemFromFood, portionLabel } from '../utils/describe';
+import { useUnits } from '../store/useSettingsStore';
 
 const HEADER = {
   title: 'My Foods',
@@ -56,6 +57,7 @@ export function MyFoodsScreen() {
 }
 
 function FoodGroup({ title, foods }: { title: string; foods: LibraryFood[] }) {
+  const u = useUnits();
   return (
     <View>
       <GroupLabel>{title}</GroupLabel>
@@ -74,7 +76,7 @@ function FoodGroup({ title, foods }: { title: string; foods: LibraryFood[] }) {
                   {food.name}
                 </Text>
                 <Text style={styles.meta}>
-                  {portionLabel(item)} · {Math.round(item.macros.calories)} kcal
+                  {portionLabel(item, u.food)} · {u.energyText(item.macros.calories)}
                 </Text>
               </View>
               <Icon name="chevron.right" size={13} color={colors.textTertiary} weight="bold" />
@@ -93,7 +95,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.gutter,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.tabBottom,
   },
   add: {
     width: 36,

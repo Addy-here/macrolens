@@ -4,8 +4,12 @@ import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-nativ
 import * as Haptics from 'expo-haptics';
 import { colors, radius, shadow, spacing, typography } from '../../theme';
 import type { TrendPoint } from '../../utils/weight';
+import { formatWeight, weightTick, type WeightUnit } from '../../utils/units';
 
-const PAD = { top: 12, right: 44, bottom: 24, left: 4 };
+const BASE_PAD = { top: 12, right: 44, bottom: 24, left: 4 };
+/** Stones ticks ("12st 9") need a wider label column. */
+const STONES_PAD = { ...BASE_PAD, right: 58 };
+const padFor = (unit: WeightUnit) => (unit === 'st' ? STONES_PAD : BASE_PAD);
 
 /**
  * Monotone cubic path (Fritsch–Carlson): smooth like a drawn curve, but it
@@ -65,11 +69,14 @@ export function TrendChart({
   points,
   goalKg,
   height = 200,
+  unit = 'kg',
 }: {
   points: TrendPoint[];
   goalKg?: number;
   height?: number;
+  unit?: WeightUnit;
 }) {
+  const PAD = padFor(unit);
   const [width, setWidth] = useState(0);
   const [active, setActive] = useState<number | null>(null);
 
@@ -106,7 +113,7 @@ export function TrendChart({
     const ticks = [max - pad, (max + min) / 2, min + pad].map((kg) => ({ kg, y: y(kg) }));
 
     return { xy, line, area, ticks, bottom, goalY: showGoal && goalKg != null ? y(goalKg) : null };
-  }, [goalKg, height, points, width]);
+  }, [PAD, goalKg, height, points, width]);
 
   const pick = (locationX: number) => {
     if (!geometry) return;
@@ -124,7 +131,7 @@ export function TrendChart({
   const last = points[points.length - 1];
   const summary =
     first && last
-      ? `Weight trend from ${first.trend.toFixed(1)} to ${last.trend.toFixed(1)} kilograms, ${shortDate(
+      ? `Weight trend from ${formatWeight(first.trend, unit)} to ${formatWeight(last.trend, unit)}, ${shortDate(
           first.time,
         )} to ${shortDate(last.time)}`
       : 'Weight trend';
@@ -217,13 +224,13 @@ export function TrendChart({
 
         {geometry
           ? geometry.ticks.map((tick) => (
-              <Text key={tick.kg} style={[styles.tick, { top: tick.y - 8 }]}>
-                {tick.kg.toFixed(1)}
+              <Text key={tick.kg} numberOfLines={1} style={[styles.tick, { top: tick.y - 8, width: PAD.right - 8 }]}>
+                {weightTick(tick.kg, unit)}
               </Text>
             ))
           : null}
         {geometry?.goalY != null ? (
-          <Text style={[styles.goal, { top: geometry.goalY - 17 }]}>Goal {goalKg?.toFixed(1)}</Text>
+          <Text style={[styles.goal, { top: geometry.goalY - 17 }]}>Goal {goalKg != null ? weightTick(goalKg, unit) : ''}</Text>
         ) : null}
         {geometry && first && last ? (
           <>
@@ -241,8 +248,8 @@ export function TrendChart({
             ]}
           >
             <Text style={styles.tooltipDate}>{shortDate(focusPoint.time)}</Text>
-            <Text style={styles.tooltipValue}>{focusPoint.trend.toFixed(1)} kg</Text>
-            <Text style={styles.tooltipDate}>Scale {focusPoint.scale.toFixed(1)}</Text>
+            <Text style={styles.tooltipValue}>{formatWeight(focusPoint.trend, unit)}</Text>
+            <Text style={styles.tooltipDate}>Scale {formatWeight(focusPoint.scale, unit, { withUnit: unit !== 'st' })}</Text>
           </View>
         ) : null}
       </View>
@@ -266,7 +273,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     position: 'absolute',
     right: 0,
-    width: PAD.right - 8,
     textAlign: 'right',
     color: colors.textTertiary,
     fontVariant: ['tabular-nums'],
@@ -274,7 +280,7 @@ const styles = StyleSheet.create({
   goal: {
     ...typography.caption,
     position: 'absolute',
-    left: PAD.left,
+    left: BASE_PAD.left,
     color: colors.textSecondary,
   },
   axis: {

@@ -2,7 +2,9 @@ import { router, type Href } from 'expo-router';
 import { create } from 'zustand';
 import { useAiKeyStore } from '../store/useAiKeyStore';
 import { useLogIntentStore } from '../store/useLogIntentStore';
-import { clearAllData, seedSampleData, stageSampleReview, whenStoresHydrated } from './sampleData';
+import { clearAllData, makeCheckInDue, seedSampleData, stageSampleReview, whenStoresHydrated } from './sampleData';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { METRIC, US } from '../utils/units';
 
 /**
  * Development only. Drives the app without touching it, for checking work in
@@ -19,7 +21,9 @@ import { clearAllData, seedSampleData, stageSampleReview, whenStoresHydrated } f
  * speak (an audio file path for Log to transcribe instead of the mic).
  */
 
-export type DevParams = Partial<Record<'seed' | 'clear' | 'go' | 'y' | 'review' | 'action' | 'aikey' | 'say' | 'speak', string>>;
+export type DevParams = Partial<
+  Record<'seed' | 'clear' | 'go' | 'y' | 'review' | 'action' | 'aikey' | 'say' | 'speak' | 'units' | 'checkin' | 'scroll', string>
+>;
 
 interface DevState {
   scroll: Record<string, number>;
@@ -60,6 +64,29 @@ export async function runDevCommand(params: DevParams) {
   // Pretend a key is saved (UI only; real requests fail), to look at the AI paths without a real key.
   if (params.aikey) useAiKeyStore.setState({ hasKey: params.aikey === '1' });
   if (params.seed) seedSampleData();
+  if (params.checkin) makeCheckInDue();
+  // Scroll a screen that's already open, without navigating: scroll=plan-editor:1300
+  if (params.scroll) {
+    const [screen, y] = params.scroll.split(':');
+    useDevStore.getState().setScroll(screen, Number(y));
+  }
+  // units=metric|us|uk|au, or a list like weight:st,energy:kJ
+  if (params.units) {
+    const presets: Record<string, typeof METRIC> = {
+      metric: METRIC,
+      us: US,
+      uk: { ...METRIC, weight: 'st', height: 'ftin' },
+      au: { ...METRIC, energy: 'kJ' },
+    };
+    const preset = presets[params.units];
+    if (preset) useSettingsStore.setState({ units: preset });
+    else {
+      for (const pair of params.units.split(',')) {
+        const [key, value] = pair.split(':');
+        useSettingsStore.setState((state) => ({ units: { ...state.units, [key]: value } }));
+      }
+    }
+  }
 
   if (params.go) {
     const go = params.go as Href;

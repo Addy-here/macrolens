@@ -14,10 +14,10 @@ export function entryDateKey(iso: string) {
   return localDateKey(new Date(iso));
 }
 
-/** Sunday-start week, matching a calendar strip. */
-export function startOfWeek(date: Date) {
+/** The first day of the week holding `date`: Sunday (0) or Monday (1). */
+export function startOfWeek(date: Date, weekStartsOn: 0 | 1 = 0) {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  d.setDate(d.getDate() - d.getDay());
+  d.setDate(d.getDate() - ((d.getDay() - weekStartsOn + 7) % 7));
   return d;
 }
 

@@ -2,7 +2,11 @@ import { useFoodLogStore } from '../store/useFoodLogStore';
 import { usePlanStore } from '../store/usePlanStore';
 import { useReviewStore } from '../store/useReviewStore';
 import { useUserStore } from '../store/useUserStore';
-import { calculateInitialPlan } from '../utils/planCalculator';
+import { useWaterStore } from '../store/useWaterStore';
+import { useFoodLibraryStore } from '../store/useFoodLibraryStore';
+import { DEFAULT_WATER, useSettingsStore } from '../store/useSettingsStore';
+import { localDateKey } from '../utils/date';
+import { proposePlan } from '../services/planFlow';
 import { createId } from '../utils/id';
 import { parseDescription } from '../utils/describe';
 import { sumMacros, sumMicros } from '../utils/macros';
@@ -47,11 +51,19 @@ const MEALS = {
   }),
   pizza: () => ({
     photo: photo('photo-1565299624946-b28f40a0ae38'),
-    items: described('two slices of pizza'),
+    items: described('three slices of pizza'),
   }),
   salad: () => ({
     photo: photo('photo-1540189549336-e6e99c3679fe'),
     items: described('a greek salad with feta'),
+  }),
+  yogurtBowl: () => ({
+    photo: photo('photo-1488477181946-6428a0291777'),
+    items: described('a pot of greek yogurt with half a cup of granola and a banana'),
+  }),
+  barLatte: () => ({
+    photo: undefined,
+    items: described('a protein bar and a latte'),
   }),
 };
 
@@ -61,7 +73,8 @@ const DAY_PLAN: { meal: FoodLogEntry['mealType']; hour: number; options: MealKey
   { meal: 'breakfast', hour: 8, options: ['avocadoToast', 'pancakes', 'eggPlate'] },
   { meal: 'lunch', hour: 12, options: ['pokeBowl', 'chickpeaBowl', 'salad'] },
   { meal: 'dinner', hour: 19, options: ['steakSalad', 'pizza', 'chickpeaBowl'] },
-  { meal: 'snack', hour: 16, options: ['salad'] },
+  { meal: 'snack', hour: 16, options: ['yogurtBowl', 'salad', 'barLatte'] },
+  { meal: 'snack', hour: 10, options: ['barLatte'] },
 ];
 
 function entryAt(date: Date, meal: FoodLogEntry['mealType'], key: MealKey): FoodLogEntry {
@@ -90,7 +103,7 @@ export const SAMPLE_PROFILE: UserProfile = {
 
 /** Resolves once every persisted store has read its saved state. */
 export function whenStoresHydrated() {
-  const stores = [useFoodLogStore, usePlanStore, useUserStore];
+  const stores = [useFoodLogStore, usePlanStore, useUserStore, useSettingsStore, useWaterStore, useFoodLibraryStore];
   return Promise.all(
     stores.map(
       (store) =>
@@ -106,13 +119,13 @@ export function seedSampleData() {
   const now = new Date();
   const entries: FoodLogEntry[] = [];
 
-  for (let daysAgo = 9; daysAgo >= 0; daysAgo--) {
+  for (let daysAgo = 23; daysAgo >= 0; daysAgo--) {
     DAY_PLAN.forEach((slot, slotIndex) => {
       const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo, slot.hour, 10 + slotIndex * 7);
       if (daysAgo === 0) {
-        // Today: breakfast, lunch, and a snack so far. Dinner is still open.
-        if (slot.meal === 'dinner') return;
-      } else if (slot.meal === 'snack' && daysAgo % 3 !== 0) {
+        // Today: whatever has happened by now. Dinner is still open.
+        if (slot.meal === 'dinner' || date.getTime() > now.getTime()) return;
+      } else if (slot.hour === 10 && daysAgo % 2 !== 0) {
         return;
       }
       const key = slot.options[(daysAgo + slotIndex) % slot.options.length];
@@ -131,10 +144,20 @@ export function seedSampleData() {
     weights.push({ id: createId(), loggedAt: date.toISOString(), weightKg: Math.round((base + noise) * 10) / 10 });
   }
 
-  const plan = calculateInitialPlan(SAMPLE_PROFILE);
+  const { plan } = proposePlan(SAMPLE_PROFILE, entries, weights);
   plan.previousTargetCalories = plan.targetCalories + 80;
   plan.changeReason =
     'You lost 0.3 kg this week against a 0.5 kg plan, so the daily target is 80 kcal lower.';
+  // Set a few days ago, so the weekly check-in isn't due yet.
+  plan.weekStartDate = localDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3));
+
+  const water: Record<string, number> = {};
+  for (let daysAgo = 9; daysAgo >= 0; daysAgo--) {
+    const key = localDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo));
+    water[key] = daysAgo === 0 ? 1000 : 1500 + ((daysAgo * 250) % 1000);
+  }
+  useWaterStore.setState({ byDay: water });
+  useSettingsStore.getState().setWater(DEFAULT_WATER);
 
   useUserStore.getState().setProfile(SAMPLE_PROFILE);
   usePlanStore.setState({ currentPlan: plan, weightHistory: weights });
@@ -145,7 +168,18 @@ export function clearAllData() {
   useUserStore.setState({ profile: null, isOnboarded: false });
   usePlanStore.setState({ currentPlan: null, weightHistory: [] });
   useFoodLogStore.setState({ entries: [] });
+  useWaterStore.setState({ byDay: {} });
   useReviewStore.getState().clear();
+}
+
+/** A plan last set eight days ago, so the weekly check-in shows. */
+export function makeCheckInDue() {
+  const plan = usePlanStore.getState().currentPlan;
+  if (!plan) return;
+  const now = new Date();
+  usePlanStore.setState({
+    currentPlan: { ...plan, weekStartDate: localDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 8)) },
+  });
 }
 
 /** A pending estimate, as if the model had just answered. Still needs Confirm. */

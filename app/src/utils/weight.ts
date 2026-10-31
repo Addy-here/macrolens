@@ -43,13 +43,3 @@ export function projectedGoalDate(trendKg: number, goalKg: number, ratePerWeek: 
   const weeks = remaining / ratePerWeek;
   return new Date(Date.now() + weeks * 7 * DAY_MS);
 }
-
-export function formatKg(value: number, digits = 1) {
-  return `${value.toFixed(digits)} kg`;
-}
-
-export function signedKg(value: number) {
-  const rounded = Math.round(value * 10) / 10;
-  if (rounded === 0) return '0.0 kg';
-  return `${rounded > 0 ? '+' : '−'}${Math.abs(rounded).toFixed(1)} kg`;
-}

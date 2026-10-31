@@ -8,6 +8,8 @@ interface PlanState {
   weightHistory: WeightEntry[];
   setPlan: (plan: AdaptivePlan) => void;
   addWeightEntry: (entry: WeightEntry) => void;
+  updateWeightEntry: (id: string, patch: Partial<WeightEntry>) => void;
+  removeWeightEntry: (id: string) => void;
   /** Simple exponentially-weighted trend over recent weight entries, used
    *  as the input to weekly plan recalculation (see docs/PRODUCT.md —
    *  "Adaptive weight-loss plans"). Smoothing factor alpha tunable later
@@ -29,6 +31,16 @@ export const usePlanStore = create<PlanState>()(
             a.loggedAt.localeCompare(b.loggedAt),
           ),
         })),
+
+      updateWeightEntry: (id, patch) =>
+        set((state) => ({
+          weightHistory: state.weightHistory
+            .map((entry) => (entry.id === id ? { ...entry, ...patch } : entry))
+            .sort((a, b) => a.loggedAt.localeCompare(b.loggedAt)),
+        })),
+
+      removeWeightEntry: (id) =>
+        set((state) => ({ weightHistory: state.weightHistory.filter((entry) => entry.id !== id) })),
 
       trendWeightKg: (alpha = 0.25) => {
         const history = get().weightHistory;

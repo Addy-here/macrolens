@@ -17,6 +17,8 @@ import { useFoodLogStore } from '../store/useFoodLogStore';
 import { useReviewStore } from '../store/useReviewStore';
 import { itemFromFood, portionLabel, searchFoods } from '../utils/describe';
 import { createId } from '../utils/id';
+import { kcalFromEnergy } from '../utils/units';
+import { useSettingsStore, useUnits } from '../store/useSettingsStore';
 import { useDevAction } from '../dev/devScroll';
 import type { FoodItem } from '../types';
 
@@ -41,6 +43,7 @@ export function SearchScreen() {
   const entries = useFoodLogStore((s) => s.entries);
   const myFoods = useFoodLibraryStore((s) => s.foods);
   const pendingCount = useReviewStore((s) => s.pending?.items.length ?? 0);
+  const units = useSettingsStore((s) => s.units);
   const [query, setQuery] = useState(q ?? '');
   const [added, setAdded] = useState<Record<string, number>>({});
   const searchBar = useRef<SearchBarCommands>(null);
@@ -97,8 +100,14 @@ export function SearchScreen() {
   );
 
   const trimmed = query.trim();
-  const quickCalories = Number(trimmed.replace(/kcal|cal|calories/gi, '').trim());
-  const showQuick = trimmed.length > 0 && Number.isFinite(quickCalories) && quickCalories > 0 && quickCalories < 5000;
+  // A bare number is quick-added in the person's energy unit; "kcal" or "kJ" after it says which.
+  const saysKj = /kj|kilojoule/i.test(trimmed);
+  const saysKcal = /kcal|cal\b|calories/i.test(trimmed);
+  const typed = Number(trimmed.replace(/kcal|kj|kilojoules?|calories|cal/gi, '').trim());
+  const quickCalories = Math.round(
+    kcalFromEnergy(typed, saysKj ? 'kJ' : saysKcal ? 'kcal' : units.energy),
+  );
+  const showQuick = trimmed.length > 0 && Number.isFinite(typed) && quickCalories > 0 && quickCalories < 5000;
   const addedCount = Object.values(added).reduce((sum, count) => sum + count, 0);
 
   const add = (row: Row) => {
@@ -247,11 +256,11 @@ function ResultRow({
   onAdd: (row: Row) => void;
 }) {
   const { item } = row;
-  const kcal = Math.round(item.macros.calories);
+  const u = useUnits();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Add ${item.name}, ${detail ?? portionLabel(item)}, ${kcal} calories${count ? `, added ${count}` : ''}`}
+      accessibilityLabel={`Add ${item.name}, ${detail ?? portionLabel(item, u.food)}, ${u.energySpoken(item.macros.calories)}${count ? `, added ${count}` : ''}`}
       onPress={() => onAdd(row)}
       style={({ pressed }) => [styles.row, !first && styles.divider, pressed && styles.pressed]}
     >
@@ -263,7 +272,7 @@ function ResultRow({
           {row.mine ? <Text style={styles.mine}>Mine</Text> : null}
         </View>
         <Text style={styles.rowMeta}>
-          {detail ?? portionLabel(item)} · {kcal} kcal
+          {detail ?? portionLabel(item, u.food)} · {u.energyText(item.macros.calories)}
         </Text>
       </View>
       {count ? (

@@ -21,6 +21,8 @@ import { useAiKeyStore } from '../store/useAiKeyStore';
 import { useFoodLibraryStore } from '../store/useFoodLibraryStore';
 import { useFoodLogStore } from '../store/useFoodLogStore';
 import { useReviewStore } from '../store/useReviewStore';
+import { useSettingsStore, useUnits } from '../store/useSettingsStore';
+import { energyValue, formatEnergy, gramsFromMass, kcalFromEnergy, massValue } from '../utils/units';
 import { useToastStore } from '../store/useToastStore';
 import { useDevAction, useDevAutoScroll } from '../dev/devScroll';
 import { addDays, dateFromKey, localDateKey } from '../utils/date';
@@ -45,6 +47,7 @@ function dayLabel(key: string) {
 export function FoodReviewScreen() {
   const pending = useReviewStore((s) => s.pending);
   const hasKey = useAiKeyStore((s) => s.hasKey);
+  const u = useUnits();
   const [mealType, setMealType] = useState<MealType>(suggestedMeal);
   const [dateKey, setDateKey] = useState(() => localDateKey(new Date()));
   const [rechecking, setRechecking] = useState(false);
@@ -130,7 +133,7 @@ export function FoodReviewScreen() {
     useReviewStore.getState().markLogged();
     router.back();
     useToastStore.getState().show(
-      editing ? 'Saved' : `${mealLabel(mealType)} · ${Math.round(totals.calories).toLocaleString()} kcal`,
+      editing ? 'Saved' : `${mealLabel(mealType)} · ${formatEnergy(totals.calories, useSettingsStore.getState().units.energy)}`,
       editing ? undefined : { label: 'Undo', run: () => useFoodLogStore.getState().removeEntry(id) },
       'done',
     );
@@ -179,7 +182,7 @@ export function FoodReviewScreen() {
         ? `Match or remove ${unresolved} ${unresolved === 1 ? 'item' : 'items'}`
         : editing
           ? 'Save'
-          : `Log ${Math.round(totals.calories).toLocaleString()} kcal`;
+          : `Log ${u.energyText(totals.calories)}`;
 
   return (
     <View style={styles.screen}>
@@ -216,9 +219,9 @@ export function FoodReviewScreen() {
         ) : null}
 
         <Card style={styles.summary}>
-          <View accessible accessibilityLabel={`Total ${Math.round(totals.calories)} calories`} style={styles.summaryTop}>
-            <Text style={styles.summaryNumber} numberOfLines={1} adjustsFontSizeToFit>{Math.round(totals.calories).toLocaleString()}</Text>
-            <Text style={styles.summaryUnit}>kcal</Text>
+          <View accessible accessibilityLabel={`Total ${u.energySpoken(totals.calories)}`} style={styles.summaryTop}>
+            <Text style={styles.summaryNumber} numberOfLines={1} adjustsFontSizeToFit>{u.energyNumber(totals.calories)}</Text>
+            <Text style={styles.summaryUnit}>{u.energy}</Text>
           </View>
           <View style={styles.nutrientRow}>
             <NutrientTotal label="Protein" value={totals.proteinG} unit="g" color={colors.protein} />
@@ -289,6 +292,7 @@ export function FoodReviewScreen() {
 }
 
 function ItemCard({ food }: { food: FoodItem }) {
+  const u = useUnits();
   const update = (next: FoodItem) => useReviewStore.getState().updateItem(next);
   const remove = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -329,7 +333,7 @@ function ItemCard({ food }: { food: FoodItem }) {
     <Card style={styles.item}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${food.name}, ${Math.round(food.macros.calories)} calories. Edit nutrition`}
+        accessibilityLabel={`${food.name}, ${u.energySpoken(food.macros.calories)}. Edit nutrition`}
         onPress={() => router.push({ pathname: '/food-editor', params: { item: food.id } })}
         style={({ pressed }) => [styles.itemTap, pressed && styles.pressed]}
       >
@@ -340,28 +344,30 @@ function ItemCard({ food }: { food: FoodItem }) {
             </Text>
             {badge ? <SourceBadge kind={badge} /> : null}
           </View>
-          <Text style={styles.itemKcal}>{Math.round(food.macros.calories)} kcal</Text>
+          <Text style={styles.itemKcal}>{u.energyText(food.macros.calories)}</Text>
           <Icon name="chevron.right" size={12} color={colors.textTertiary} weight="semibold" />
         </View>
         {quick ? null : (
           <View style={styles.itemMeta}>
             <MacroMarks macros={food.macros} />
-            {food.serving ? <Text style={styles.metaText}>{food.portionGrams} g</Text> : null}
+            {food.serving ? <Text style={styles.metaText}>{u.massText(food.portionGrams)}</Text> : null}
           </View>
         )}
       </Pressable>
       <View style={styles.itemControls}>
         {quick ? (
           <Stepper
-            label="Calories"
-            value={food.macros.calories}
-            unit="kcal"
-            step={10}
-            onChange={(calories) => update({ ...food, userAdjusted: true, macros: { ...food.macros, calories } })}
+            label={u.energyName}
+            value={energyValue(food.macros.calories, u.energy)}
+            unit={u.energy}
+            step={u.energy === 'kJ' ? 50 : 10}
+            onChange={(value) =>
+              update({ ...food, userAdjusted: true, macros: { ...food.macros, calories: Math.round(kcalFromEnergy(value, u.energy)) } })
+            }
           />
         ) : food.serving ? (
           <Stepper
-            label={`${food.name}, ${portionLabel(food)}`}
+            label={`${food.name}, ${portionLabel(food, u.food)}`}
             value={Math.round((food.portionGrams / food.serving.grams) * 4) / 4}
             unit={food.portionGrams <= food.serving.grams + 0.5 ? food.serving.label : food.serving.plural}
             step={food.serving.grams >= 100 ? 0.5 : 1}
@@ -371,10 +377,11 @@ function ItemCard({ food }: { food: FoodItem }) {
         ) : (
           <Stepper
             label={`${food.name} portion`}
-            value={food.portionGrams}
-            unit="g"
-            step={food.portionGrams <= 50 ? 5 : 10}
-            onChange={(grams) => update(scaleItem(food, grams))}
+            value={massValue(food.portionGrams, u.food)}
+            unit={u.food}
+            step={u.food === 'oz' ? 0.5 : food.portionGrams <= 50 ? 5 : 10}
+            min={u.food === 'oz' ? 0.25 : 1}
+            onChange={(value) => update(scaleItem(food, gramsFromMass(value, u.food)))}
           />
         )}
         <RemoveButton name={food.name} onPress={remove} />

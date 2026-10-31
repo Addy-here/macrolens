@@ -33,6 +33,8 @@ import { useDevAction, useDevAutoScroll } from '../dev/devScroll';
 import { dateFromKey, localDateKey } from '../utils/date';
 import { parseDescription } from '../utils/describe';
 import { entryTitle, MEALS, mealLabel, suggestedMeal } from '../utils/meals';
+import { useUnits } from '../store/useSettingsStore';
+import { kcalFromEnergy } from '../utils/units';
 import type { FoodLogEntry } from '../types';
 
 const PROMPTS: Record<FoodLogEntry['mealType'], string> = {
@@ -64,6 +66,7 @@ export function LogScreen() {
   const target = useReviewStore((s) => s.target);
   const loggedToken = useReviewStore((s) => s.loggedToken);
   const entries = useFoodLogStore((s) => s.entries);
+  const u = useUnits();
   const library = useParserLibrary();
   // At accessibility text sizes the three shortcuts stack, as iOS does with side-by-side controls.
   const largeText = useWindowDimensions().fontScale >= 1.35;
@@ -232,13 +235,13 @@ export function LogScreen() {
   function quickAdd() {
     Alert.prompt(
       'Quick add',
-      'Calories',
+      u.energyName,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Add',
           onPress: (value?: string) => {
-            const calories = Number(String(value ?? '').replace(/[^\d.]/g, ''));
+            const calories = kcalFromEnergy(Number(String(value ?? '').replace(/[^\d.]/g, '')), u.energy);
             if (!Number.isFinite(calories) || calories <= 0) return;
             const { target: current } = useReviewStore.getState();
             useReviewStore.getState().setPending({
@@ -435,7 +438,7 @@ export function LogScreen() {
               <Pressable
                 key={entry.id}
                 accessibilityRole="button"
-                accessibilityLabel={`Log ${entryTitle(entry.items)} again, ${Math.round(entry.totalMacros.calories)} calories`}
+                accessibilityLabel={`Log ${entryTitle(entry.items)} again, ${u.energySpoken(entry.totalMacros.calories)}`}
                 onPress={() => {
                   void Haptics.selectionAsync();
                   stageAgain(entry);
@@ -447,7 +450,7 @@ export function LogScreen() {
                 <Text style={styles.recentTitle} numberOfLines={2}>
                   {entryTitle(entry.items)}
                 </Text>
-                <Text style={styles.recentKcal}>{Math.round(entry.totalMacros.calories)} kcal</Text>
+                <Text style={styles.recentKcal}>{u.energyText(entry.totalMacros.calories)}</Text>
               </Pressable>
             ))}
           </ScrollView>

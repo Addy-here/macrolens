@@ -4,34 +4,37 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { ProgressRing } from './ProgressRing';
 import { colors, spacing, typography } from '../../theme';
-import { addDays, localDateKey, startOfWeek } from '../../utils/date';
+import { addDays, dateFromKey, localDateKey, startOfWeek } from '../../utils/date';
 
-const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const SIZE = 38;
 
 /**
- * Sunday-start week. Each day carries a thin calorie ring, so the week
- * reads at a glance the way Fitness shows a week of Activity rings.
+ * The week holding the selected day, starting Sunday or Monday. Each day
+ * carries a thin calorie ring, so the week reads at a glance the way Fitness
+ * shows a week of Activity rings.
  */
 export function WeekStrip({
   selectedKey,
   onSelect,
   progressByDay,
+  weekStartsOn = 0,
 }: {
   selectedKey: string;
   onSelect: (key: string) => void;
   /** Calories eaten / target, keyed by local date. */
   progressByDay: Record<string, number>;
+  weekStartsOn?: 0 | 1;
 }) {
-  const today = new Date();
-  const todayKey = localDateKey(today);
-  const start = startOfWeek(today);
+  const todayKey = localDateKey(new Date());
+  const start = startOfWeek(dateFromKey(selectedKey), weekStartsOn);
 
   return (
     <View style={styles.row}>
-      {WEEKDAYS.map((letter, index) => {
+      {LETTERS.map((_, index) => {
         const date = addDays(start, index);
+        const letter = LETTERS[date.getDay()];
         const key = localDateKey(date);
         const selected = key === selectedKey;
         const isToday = key === todayKey;
@@ -44,7 +47,7 @@ export function WeekStrip({
             disabled={future}
             accessibilityRole="button"
             accessibilityState={{ selected, disabled: future }}
-            accessibilityLabel={`${WEEKDAY_NAMES[index]} ${date.getDate()}${
+            accessibilityLabel={`${WEEKDAY_NAMES[date.getDay()]} ${date.getDate()}${
               progress > 0 ? `, ${Math.round(progress * 100)} percent of calories` : ''
             }`}
             onPress={() => {

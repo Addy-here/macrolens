@@ -13,7 +13,9 @@ export function useDevAutoScroll(screen: string) {
   useEffect(() => {
     if (!__DEV__ || target == null) return;
     const timer = setTimeout(() => {
-      ref.current?.scrollTo({ y: target, animated: false });
+      // y=-1 means the end of the page; iOS doesn't clamp a programmatic offset, so a big number overscrolls.
+      if (target === -1) ref.current?.scrollToEnd({ animated: false });
+      else ref.current?.scrollTo({ y: target, animated: false });
       useDevStore.getState().takeScroll(screen);
     }, 1200);
     return () => clearTimeout(timer);

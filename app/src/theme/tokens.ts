@@ -15,6 +15,11 @@ export const spacing = {
   xxl: 48,
   /** Horizontal inset of every screen. */
   gutter: 20,
+  /**
+   * Bottom padding on tab screens that show the Log a meal bar. The automatic
+   * inset clears the tab bar but not the bar's accessory above it.
+   */
+  tabBottom: 104,
 } as const;
 
 export const radius = {

@@ -625,3 +625,69 @@ text; a plain scroll view didn't move.
 right) — still three shapes side by side. A switch row for AI — needed a
 sentence of explanation; the two labelled segments explain themselves.
 
+
+## 2026-10-30 — Plan and Settings split; units, adaptive maintenance, reminders, water
+
+**Decision:**
+- **Plan owns the plan.** Goals, body stats, activity, macros, a custom
+  target, and the weekend shift moved out of Settings into a plan editor
+  sheet (`/plan-editor`) opened from Plan. Settings is preferences only.
+  `UserProfile` gained optional `dietStyle`, `customSplit`,
+  `calorieOverride`, `weekendExtraKcal`; `AdaptivePlan` gained
+  `maintenanceCalories`, `basis` (`formula` / `measured` / `custom`),
+  `floored`, `weekendExtraKcal`. All optional, so old data and backups load.
+- **Units are a display concern.** Data stays metric; `useSettingsStore`
+  (persisted as `macrolens-settings`) holds weight / height / energy / food /
+  water units, and `utils/units.ts` converts at the edge. Defaults come from
+  the device region; a profile saved before this change keeps metric and a
+  Sunday week (a one-time migration reads `macrolens-user`).
+- **Measured maintenance (MacroFactor-style).** `utils/expenditure.ts`
+  estimates expenditure from the last 28 days: average intake on logged
+  days (empty days are skipped, not counted as zero) minus the trend's
+  change × 7,700 kcal/kg. It needs 10 logged days and two weeks of
+  weigh-ins, blends with the formula until 21 days, and is clamped to
+  70–135% of the formula. A weekly check-in (7 days after the target was
+  set) proposes the new target with the reason; the person updates or keeps
+  it. A custom target turns check-ins off. Plan edits use the same
+  maintenance the Plan tab shows. Suggested targets never go under 1,200
+  (female) / 1,500 (male) / 1,350 kcal.
+- **Weekend shift.** Extra kcal on Saturday and Sunday is taken evenly from
+  Monday–Friday so the week's total is unchanged; protein stays fixed and
+  carbs/fat absorb the difference. Today reads each day's own target.
+- **Reminders** are local notifications (`expo-notifications`) scheduled one
+  by one for the next 7 days rather than repeating, so a reminder is left
+  out when that meal is logged or the weigh-in done, or on a weekday the
+  person turned off (`Reminder.days`; the weigh-in shows day toggles, since
+  many people weigh in a few set mornings a week); they resync when the
+  log, weigh-ins, or settings change. Tapping one opens Log for that meal or
+  Plan. No push, no server. The notification config plugin isn't used: it
+  adds the push entitlement, which local notifications don't need.
+- **Time and date pickers** are `@react-native-community/datetimepicker`
+  (compact, inline). Both are new native modules — rebuild the dev build.
+- **Water** is its own store (`macrolens-water`, ml by day) with a Today
+  card; goal and glass size live in Settings.
+- **Data:** CSV export (food log per item, weigh-ins, water, in the
+  person's units), and Delete All Data (keeps units, reminders, the AI key).
+  Backups now carry water and settings as optional fields; version stays 1.
+- **Today** gained previous/next week, a set-up prompt when there's no plan,
+  and a Sunday- or Monday-start week.
+- **Layout:** tab screens add `spacing.tabBottom` because the automatic
+  inset doesn't include the Log a meal bar above the tab bar — the last rows
+  of Plan and the Settings footer were hidden behind it.
+
+**Why:** The user asked for Plan and Settings to be separate, for proper
+settings with units "for everything", and for the basic suite of the
+category. MacroFactor, MyFitnessPal, Cronometer, and Lose It all ship: unit
+choices including stones and kJ, goal direction with pace, diet presets and
+custom macro splits, a manual target option, weekend/uneven calorie
+distribution (MacroFactor, Lose It), meal and weigh-in reminders, water,
+weigh-in history with edits, CSV export, and account/data deletion.
+MacroFactor's measured expenditure is the core of "adaptive" in
+docs/PRODUCT.md, which until now was only a formula with sample text.
+
+**Alternatives considered:** Repeating daily notifications (can't skip a
+day already logged). Storing values in the chosen unit (every unit switch
+would rewrite history, and rounding would drift). Recomputing the target
+from measured data on every edit without a check-in (the number would move
+under people without a reason shown). Keeping body stats in Settings
+(they only exist to compute the plan).

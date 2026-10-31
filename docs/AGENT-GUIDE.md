@@ -109,7 +109,11 @@ echo "action=log.review" > "$C/Documents/dev-command.txt"       # run a register
 xcrun simctl io booted screenshot shot.png
 ```
 
-Keys: `seed`, `clear`, `go` (URL-encoded route), `y`, `review`, `action`,
+Keys: `seed`, `clear`, `go` (URL-encoded route), `y` (`-1` scrolls to the
+end; iOS doesn't clamp a large offset), `scroll` (`screen:y`, scrolls an open
+screen without navigating, e.g. `plan-editor:1200`), `units` (`metric`,
+`us`, `uk`, `au`, or `weight:st,energy:kJ`), `checkin` (make the weekly
+check-in due), `review`, `action`,
 `aikey` (1/0: act as if an AI key is saved — real requests still fail),
 `say` (prefill Log), `speak` (a WAV path to transcribe instead of the mic;
 16 kHz mono, e.g. `say -o x.aiff "…"` + `afconvert -f WAVE -d LEI16@16000
@@ -120,7 +124,18 @@ Keys: `seed`, `clear`, `go` (URL-encoded route), `y`, `review`, `action`,
 `log.simulateListening` (fakes a voice level and transcript, since real
 recognition can't run in this simulator), `log.focus`, `log.simulatePhoto`,
 `log.simulatePhotoError`, `log.pickHeard`, `log.blur`, `plan.focusWeight`,
-`settings.focusKey` (the last two open the keyboard on that field).
+`settings.focusKey` (on `/settings/ai`; the last two open the keyboard on that
+field), `plan.saveWeight`, `plan.checkIn`, `planEditor.fill` (types weights,
+since the simulator can't), `planEditor.save`, `planEditor.maintain`,
+`planEditor.gain`, `planEditor.customMacros`, `planEditor.customTarget`,
+`planEditor.weekends`, `weighIn.save`, `reminders.demo` (turns on breakfast
+and a Mon/Wed/Fri weigh-in without the permission prompt, which can't be
+answered here).
+
+Fast Refresh doesn't pick up changes to theme tokens (`spacing`, `colors`)
+used in `StyleSheet.create`; relaunch the app before judging them.
+Notification permission can't be granted in the simulator, so reminder
+scheduling is covered by `src/services/__tests__/reminders.test.ts`.
 
 Test keyboard behaviour with the on-screen keyboard. If focusing a field
 shows no keyboard, the simulator thinks a hardware keyboard is attached and

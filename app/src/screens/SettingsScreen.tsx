@@ -1,74 +1,44 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import React from 'react';
+import { ActionSheetIOS, Alert, Platform, StyleSheet, Switch, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import type { SFSymbol } from 'expo-symbols';
+import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Constants from 'expo-constants';
-import { AiKeySection } from '../components/AiKeySection';
 import { AppMark } from '../components/ui/AppMark';
-import { GlassButton } from '../components/glass';
 import { Card } from '../components/ui/Card';
-import { Icon } from '../components/ui/Icon';
 import { GroupLabel, ListRow } from '../components/ui/ListRow';
 import { Segmented } from '../components/ui/Segmented';
+import { IntegerInput } from '../components/ui/UnitFields';
 import { colors, spacing, typography } from '../theme';
-import { useUserStore } from '../store/useUserStore';
+import { useAiKeyStore } from '../store/useAiKeyStore';
 import { useFoodLibraryStore } from '../store/useFoodLibraryStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { useToastStore } from '../store/useToastStore';
 import { BackupError, exportBackup, pickBackup, restoreBackup } from '../services/backup';
-import { router } from 'expo-router';
-import { usePlanStore } from '../store/usePlanStore';
+import { eraseAllData, exportFoodCsv, exportWaterCsv, exportWeightCsv } from '../services/dataExport';
+import { providerLabel } from '../services/aiKey';
 import { useDevAction, useDevAutoScroll } from '../dev/devScroll';
 import { clearAllData, seedSampleData } from '../dev/sampleData';
-import { calculateInitialPlan } from '../utils/planCalculator';
-import type { ActivityLevel, UserProfile } from '../types';
+import { mlFromWater, waterUnitLabel, waterValue } from '../utils/units';
 
-const ACTIVITY_LEVELS: { key: ActivityLevel; label: string; detail: string }[] = [
-  { key: 'sedentary', label: 'Sedentary', detail: 'Desk job, little exercise' },
-  { key: 'light', label: 'Lightly active', detail: 'Walks, exercise 1–3 days a week' },
-  { key: 'moderate', label: 'Moderately active', detail: 'Exercise 3–5 days a week' },
-  { key: 'active', label: 'Active', detail: 'Hard exercise most days' },
-  { key: 'very-active', label: 'Very active', detail: 'Physical job or two-a-days' },
-];
-
-const PACES = [0, -0.25, -0.5, -0.75, -1];
-
-const BLANK_PROFILE: UserProfile = {
-  id: 'local-user',
-  heightCm: 175,
-  startingWeightKg: 80,
-  goalWeightKg: 72,
-  targetRateKgPerWeek: -0.5,
-  activityLevel: 'moderate',
-  birthYear: 1995,
-  sex: 'other',
-};
-
+/**
+ * App settings: units, the calendar, water, reminders, foods and AI, and
+ * data. Goals and body stats belong to the plan and are edited from Plan.
+ */
 export function SettingsScreen() {
-  const profile = useUserStore((s) => s.profile);
-  const setProfile = useUserStore((s) => s.setProfile);
-  const setPlan = usePlanStore((s) => s.setPlan);
-  const currentPlan = usePlanStore((s) => s.currentPlan);
-  const scrollRef = useDevAutoScroll('settings');
+  const units = useSettingsStore((s) => s.units);
+  const setUnit = useSettingsStore((s) => s.setUnit);
+  const weekStartsOn = useSettingsStore((s) => s.weekStartsOn);
+  const setWeekStart = useSettingsStore((s) => s.setWeekStart);
+  const water = useSettingsStore((s) => s.water);
+  const setWater = useSettingsStore((s) => s.setWater);
+  const reminders = useSettingsStore((s) => s.reminders);
   const myFoodCount = useFoodLibraryStore((s) => s.foods.length);
+  const provider = useAiKeyStore((s) => s.provider);
+  const hasKey = useAiKeyStore((s) => s.hasKey);
+  const scrollRef = useDevAutoScroll('settings');
 
-  const [draft, setDraft] = useState<UserProfile>(profile ?? BLANK_PROFILE);
-  const [saved, setSaved] = useState(Boolean(profile));
-
-  // A profile that arrives after mount (store hydration, sample data) replaces the draft.
-  useEffect(() => {
-    if (profile) {
-      setDraft(profile);
-      setSaved(true);
-    }
-  }, [profile]);
-
-  const preview = useMemo(() => calculateInitialPlan(draft), [draft]);
-
-  function patch<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
-    setDraft((prev) => ({ ...prev, [key]: value }));
-    setSaved(false);
-  }
+  const remindersOn = Object.values(reminders).filter((reminder) => reminder.enabled).length;
 
   useDevAction('settings.export', () => void runExport());
 
@@ -107,22 +77,47 @@ export function SettingsScreen() {
     }
   }
 
-  function handleSave() {
-    setProfile(draft);
-    const next = calculateInitialPlan(draft);
-    if (currentPlan) {
-      next.previousTargetCalories = currentPlan.targetCalories;
-      next.changeReason = 'Updated from the goals you just saved.';
+  function chooseCsv() {
+    const run = (task: () => Promise<void>) => () =>
+      void task().catch(() => Alert.alert('Couldn’t export', 'Try again in a moment.'));
+    const options = [
+      { label: 'Food Log', run: run(exportFoodCsv) },
+      { label: 'Weigh-Ins', run: run(exportWeightCsv) },
+      { label: 'Water', run: run(exportWaterCsv) },
+    ];
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { title: 'Export as CSV', options: [...options.map((o) => o.label), 'Cancel'], cancelButtonIndex: options.length },
+        (index) => options[index]?.run(),
+      );
+    } else {
+      Alert.alert('Export as CSV', undefined, [
+        ...options.map((o) => ({ text: o.label, onPress: o.run })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]);
     }
-    setPlan(next);
-    setSaved(true);
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
-  const paceOptions = PACES.includes(draft.targetRateKgPerWeek)
-    ? PACES
-    : [...PACES, draft.targetRateKgPerWeek].sort((a, b) => b - a);
-  const dailyGap = Math.round((-draft.targetRateKgPerWeek * 7700) / 7);
+  function confirmErase() {
+    Alert.alert(
+      'Delete all data?',
+      'Meals, photos, weigh-ins, water, My Foods, and your plan are deleted from this iPhone. This can’t be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: () => {
+            eraseAllData();
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            useToastStore.getState().show('All data deleted');
+          },
+        },
+      ],
+    );
+  }
+
+  const waterUnit = waterUnitLabel(units.water);
 
   return (
     <KeyboardAwareScrollView
@@ -134,128 +129,173 @@ export function SettingsScreen() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Card style={styles.preview}>
-        <View style={styles.previewText}>
-          <Text style={styles.previewLabel}>{saved ? 'Your daily target' : 'New daily target'}</Text>
-          <Text style={styles.previewNumber}>
-            {preview.targetCalories.toLocaleString()}
-            <Text style={styles.previewUnit}> kcal</Text>
-          </Text>
-          <Text style={styles.previewDetail}>
-            {preview.targetMacros.proteinG} g protein · {preview.targetMacros.carbsG} g carbs ·{' '}
-            {preview.targetMacros.fatG} g fat
-          </Text>
-        </View>
-        <View style={[styles.previewStatus, saved && styles.previewStatusSaved]}>
-          <Icon
-            name={saved ? 'checkmark' : 'pencil'}
-            size={12}
-            color={saved ? colors.success : colors.accent}
-            weight="bold"
-          />
-        </View>
-      </Card>
-
-      <GroupLabel>Body</GroupLabel>
+      <GroupLabel>Units</GroupLabel>
       <Card padded={false}>
         <ListRow
           first
-          icon="person.fill"
-          tint={colors.tile.indigo}
-          title="Sex"
-          trailing={
-            <View style={styles.sexPicker}>
-              <Segmented
-                accessibilityLabel="Sex"
-                options={[
-                  { value: 'female', label: 'Female' },
-                  { value: 'male', label: 'Male' },
-                  { value: 'other', label: 'Other' },
-                ]}
-                value={draft.sex}
-                onChange={(sex) => patch('sex', sex)}
-              />
-            </View>
-          }
-        />
-        <NumberRow
-          icon="birthday.cake.fill"
-          tint={colors.tile.pink}
-          label="Birth year"
-          value={draft.birthYear}
-          integer
-          onChange={(v) => patch('birthYear', v)}
-        />
-        <NumberRow
-          icon="ruler.fill"
-          tint={colors.tile.teal}
-          label="Height"
-          unit="cm"
-          value={draft.heightCm}
-          onChange={(v) => patch('heightCm', v)}
-        />
-        <NumberRow
           icon="scalemass.fill"
           tint={colors.tile.gray}
-          label="Current weight"
-          unit="kg"
-          value={draft.startingWeightKg}
-          onChange={(v) => patch('startingWeightKg', v)}
+          title="Weight"
+          trailing={
+            <Picker
+              label="Weight unit"
+              options={[
+                { value: 'kg', label: 'kg' },
+                { value: 'lb', label: 'lb' },
+                { value: 'st', label: 'st' },
+              ]}
+              value={units.weight}
+              onChange={(value) => setUnit('weight', value)}
+              wide
+            />
+          }
         />
-        <NumberRow
-          icon="flag.checkered"
+        <ListRow
+          icon="ruler.fill"
+          tint={colors.tile.teal}
+          title="Height"
+          trailing={
+            <Picker
+              label="Height unit"
+              options={[
+                { value: 'cm', label: 'cm' },
+                { value: 'ftin', label: 'ft, in' },
+              ]}
+              value={units.height}
+              onChange={(value) => setUnit('height', value)}
+            />
+          }
+        />
+        <ListRow
+          icon="flame.fill"
+          tint={colors.tile.orange}
+          title="Energy"
+          trailing={
+            <Picker
+              label="Energy unit"
+              options={[
+                { value: 'kcal', label: 'kcal' },
+                { value: 'kJ', label: 'kJ' },
+              ]}
+              value={units.energy}
+              onChange={(value) => setUnit('energy', value)}
+            />
+          }
+        />
+        <ListRow
+          icon="fork.knife"
           tint={colors.tile.green}
-          label="Goal weight"
-          unit="kg"
-          value={draft.goalWeightKg}
-          onChange={(v) => patch('goalWeightKg', v)}
+          title="Food"
+          trailing={
+            <Picker
+              label="Food weight unit"
+              options={[
+                { value: 'g', label: 'g' },
+                { value: 'oz', label: 'oz' },
+              ]}
+              value={units.food}
+              onChange={(value) => setUnit('food', value)}
+            />
+          }
+        />
+        <ListRow
+          icon="drop.fill"
+          tint={colors.tile.indigo}
+          title="Water"
+          trailing={
+            <Picker
+              label="Water unit"
+              options={[
+                { value: 'ml', label: 'ml' },
+                { value: 'floz', label: 'fl oz' },
+              ]}
+              value={units.water}
+              onChange={(value) => setUnit('water', value)}
+            />
+          }
         />
       </Card>
 
-      <GroupLabel>Pace, kg per week</GroupLabel>
-      <Card style={styles.pace}>
-        <Segmented
-          accessibilityLabel="Weekly pace"
-          options={paceOptions.map((value) => ({
-            value,
-            label: value === 0 ? 'Maintain' : String(Math.abs(value)),
-          }))}
-          value={draft.targetRateKgPerWeek}
-          onChange={(value) => patch('targetRateKgPerWeek', value)}
-        />
-        <Text style={styles.paceHint}>
-          {dailyGap === 0
-            ? 'Eat at maintenance. The target follows your trend to hold it steady.'
-            : `About ${dailyGap.toLocaleString()} kcal a day under maintenance.${
-                draft.targetRateKgPerWeek <= -0.75 ? ' A faster pace is harder to keep up.' : ''
-              }`}
-        </Text>
-      </Card>
-
-      <GroupLabel>Activity</GroupLabel>
+      <GroupLabel>General</GroupLabel>
       <Card padded={false}>
-        {ACTIVITY_LEVELS.map((level, index) => (
-          <ListRow
-            key={level.key}
-            first={index === 0}
-            title={level.label}
-            subtitle={level.detail}
-            accessory="check"
-            selected={draft.activityLevel === level.key}
-            onPress={() => patch('activityLevel', level.key)}
-          />
-        ))}
+        <ListRow
+          first
+          icon="calendar"
+          tint={colors.tile.pink}
+          title="Week starts on"
+          trailing={
+            <Picker
+              label="First day of the week"
+              options={[
+                { value: 0, label: 'Sun' },
+                { value: 1, label: 'Mon' },
+              ]}
+              value={weekStartsOn}
+              onChange={setWeekStart}
+            />
+          }
+        />
+        <ListRow
+          icon="bell.fill"
+          tint={colors.tile.orange}
+          title="Reminders"
+          value={remindersOn ? `${remindersOn} on` : 'Off'}
+          accessory="chevron"
+          onPress={() => router.push('/settings/reminders')}
+        />
       </Card>
 
-      <View style={styles.save}>
-        <GlassButton
-          label={saved ? 'Goals Saved' : 'Save Goals'}
-          icon={saved ? 'checkmark' : undefined}
-          variant="primary"
-          onPress={handleSave}
-          disabled={saved}
+      <GroupLabel>Water</GroupLabel>
+      <Card padded={false}>
+        <ListRow
+          first
+          icon="drop.fill"
+          tint={colors.tile.indigo}
+          title="Track water"
+          trailing={
+            <Switch
+              value={water.enabled}
+              onValueChange={(enabled) => setWater({ enabled })}
+              trackColor={{ true: colors.accent }}
+              accessibilityLabel="Track water"
+            />
+          }
         />
-      </View>
+        {water.enabled ? (
+          <>
+            <ListRow
+              icon="target"
+              tint={colors.tile.teal}
+              title="Daily goal"
+              trailing={
+                <IntegerInput
+                  value={waterValue(water.goalMl, units.water)}
+                  unit={waterUnit}
+                  label="Daily water goal"
+                  min={1}
+                  max={units.water === 'floz' ? 400 : 10000}
+                  onChange={(value) => setWater({ goalMl: Math.round(mlFromWater(value, units.water)) })}
+                />
+              }
+            />
+            <ListRow
+              icon="cup.and.saucer.fill"
+              tint={colors.tile.gray}
+              title="Glass size"
+              trailing={
+                <IntegerInput
+                  value={waterValue(water.glassMl, units.water)}
+                  unit={waterUnit}
+                  label="Glass size"
+                  min={1}
+                  max={units.water === 'floz' ? 64 : 2000}
+                  onChange={(value) => setWater({ glassMl: Math.round(mlFromWater(value, units.water)) })}
+                />
+              }
+            />
+          </>
+        ) : null}
+      </Card>
 
       <GroupLabel>Food</GroupLabel>
       <Card padded={false}>
@@ -268,14 +308,24 @@ export function SettingsScreen() {
           accessory="chevron"
           onPress={() => router.push('/settings/foods')}
         />
+        {Platform.OS !== 'web' ? (
+          <ListRow
+            icon="sparkles"
+            tint={colors.tile.indigo}
+            title="AI"
+            value={hasKey ? providerLabel(provider) : 'No key'}
+            accessory="chevron"
+            onPress={() => router.push('/settings/ai')}
+          />
+        ) : null}
       </Card>
-
-      <AiKeySection />
 
       <GroupLabel>Data</GroupLabel>
       <Card padded={false}>
         <ListRow first icon="square.and.arrow.up" tint={colors.tile.teal} title="Export Backup" onPress={() => void runExport()} />
         <ListRow icon="square.and.arrow.down" tint={colors.tile.indigo} title="Import Backup" onPress={() => void runImport()} />
+        <ListRow icon="tablecells" tint={colors.tile.green} title="Export as CSV" onPress={chooseCsv} />
+        <ListRow icon="trash.fill" tint={colors.danger} title="Delete All Data" destructive onPress={confirmErase} />
       </Card>
       <Text style={styles.footnote}>Stored only on this iPhone. Deleting the app deletes it, so export a backup first.</Text>
 
@@ -283,13 +333,7 @@ export function SettingsScreen() {
         <>
           <GroupLabel>Developer</GroupLabel>
           <Card padded={false}>
-            <ListRow
-              first
-              icon="wand.and.stars"
-              tint={colors.tile.indigo}
-              title="Load sample data"
-              onPress={seedSampleData}
-            />
+            <ListRow first icon="wand.and.stars" tint={colors.tile.indigo} title="Load sample data" onPress={seedSampleData} />
             <ListRow
               icon="trash.fill"
               tint={colors.tile.pink}
@@ -313,54 +357,24 @@ export function SettingsScreen() {
   );
 }
 
-function NumberRow({
-  icon,
-  tint,
+/** A compact segmented control for a row's trailing edge. */
+function Picker<T extends string | number>({
   label,
-  unit,
+  options,
   value,
-  integer = false,
   onChange,
+  wide = false,
 }: {
-  icon: SFSymbol;
-  tint: string;
   label: string;
-  unit?: string;
-  value: number;
-  integer?: boolean;
-  onChange: (v: number) => void;
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+  wide?: boolean;
 }) {
-  const [text, setText] = useState(String(value));
-
-  useEffect(() => {
-    setText(String(value));
-  }, [value]);
-
   return (
-    <ListRow
-      icon={icon}
-      tint={tint}
-      title={label}
-      trailing={
-        <View style={styles.numberField}>
-          <TextInput
-            style={styles.numberInput}
-            keyboardType={integer ? 'number-pad' : 'decimal-pad'}
-            keyboardAppearance="light"
-            value={text}
-            onChangeText={setText}
-            selectTextOnFocus
-            accessibilityLabel={unit ? `${label} in ${unit}` : label}
-            onEndEditing={() => {
-              const parsed = integer ? parseInt(text, 10) : parseFloat(text.replace(',', '.'));
-              if (Number.isFinite(parsed) && parsed > 0) onChange(parsed);
-              else setText(String(value));
-            }}
-          />
-          <Text style={styles.numberUnit} numberOfLines={1}>{unit ?? ''}</Text>
-        </View>
-      }
-    />
+    <View style={wide ? styles.pickerWide : styles.picker}>
+      <Segmented accessibilityLabel={label} options={options} value={value} onChange={onChange} />
+    </View>
   );
 }
 
@@ -372,76 +386,13 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.gutter,
     paddingTop: spacing.xs,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.tabBottom,
   },
-  preview: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: spacing.lg - 4,
+  picker: {
+    width: 128,
   },
-  previewText: {
-    flex: 1,
-    gap: 2,
-  },
-  previewLabel: {
-    ...typography.label,
-    color: colors.textSecondary,
-  },
-  previewNumber: {
-    ...typography.statLarge,
-    fontSize: 36,
-    color: colors.textPrimary,
-  },
-  previewUnit: {
-    ...typography.headline,
-    color: colors.textSecondary,
-  },
-  previewDetail: {
-    ...typography.footnote,
-    color: colors.textSecondary,
-  },
-  previewStatus: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accentSoft,
-  },
-  previewStatusSaved: {
-    backgroundColor: 'rgba(31, 157, 99, 0.12)',
-  },
-  sexPicker: {
-    width: 210,
-  },
-  numberField: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  numberInput: {
-    ...typography.statSmall,
-    fontSize: 17,
-    color: colors.textPrimary,
-    minWidth: 56,
-    textAlign: 'right',
-    padding: 0,
-  },
-  numberUnit: {
-    ...typography.callout,
-    color: colors.textTertiary,
-    minWidth: 24,
-  },
-  pace: {
-    gap: spacing.sm + 4,
-  },
-  paceHint: {
-    ...typography.footnote,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  save: {
-    marginTop: spacing.lg,
+  pickerWide: {
+    width: 160,
   },
   footnote: {
     ...typography.footnote,

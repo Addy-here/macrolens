@@ -11,6 +11,8 @@ import { useReviewStore } from '../store/useReviewStore';
 import { useDevAction } from '../dev/devScroll';
 import { itemFromFood } from '../utils/describe';
 import { createId } from '../utils/id';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { energyValue, gramsFromMass, kcalFromEnergy, massValue, type Units } from '../utils/units';
 import type { FoodItem } from '../types';
 
 type Field = 'calories' | 'protein' | 'carbs' | 'fat' | 'fiber' | 'sugar' | 'satFat' | 'sodium';
@@ -30,12 +32,13 @@ type Values = Record<Field, string> & { name: string; grams: string; servingLabe
 
 const fmt = (value: number | undefined) => (value == null ? '' : String(Math.round(value * 10) / 10));
 
-function valuesFromItem(item: FoodItem): Values {
+/** Energy and weight are shown and typed in the person's units; everything else is grams and milligrams. */
+function valuesFromItem(item: FoodItem, units: Units): Values {
   return {
     name: item.name,
-    grams: String(item.portionGrams),
+    grams: String(massValue(item.portionGrams, units.food)),
     servingLabel: item.serving?.label ?? '',
-    calories: fmt(item.macros.calories),
+    calories: fmt(energyValue(item.macros.calories, units.energy)),
     protein: fmt(item.macros.proteinG),
     carbs: fmt(item.macros.carbsG),
     fat: fmt(item.macros.fatG),
@@ -46,13 +49,16 @@ function valuesFromItem(item: FoodItem): Values {
   };
 }
 
-function itemFromValues(values: Values, base?: FoodItem): FoodItem {
+function itemFromValues(values: Values, units: Units, base?: FoodItem): FoodItem {
   const n = (text: string) => {
     const parsed = parseFloat(text.replace(',', '.'));
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
   };
   const optional = (text: string) => (text.trim() === '' ? undefined : n(text));
-  const grams = Math.max(1, Math.round(n(values.grams) || base?.portionGrams || 100));
+  // An untouched weight keeps its exact grams, so ounces rounded for display don't drift.
+  const untouched = base && values.grams === String(massValue(base.portionGrams, units.food));
+  const typedGrams = untouched ? base.portionGrams : n(values.grams) ? gramsFromMass(n(values.grams), units.food) : 0;
+  const grams = Math.max(1, Math.round(typedGrams || base?.portionGrams || 100));
   const label = values.servingLabel.trim();
   const micros = {
     fiberG: optional(values.fiber),
@@ -70,7 +76,7 @@ function itemFromValues(values: Values, base?: FoodItem): FoodItem {
     heard: base?.heard,
     libraryId: base?.libraryId,
     serving: label ? { label, plural: label.endsWith('s') ? label : `${label}s`, grams } : base?.serving,
-    macros: { calories: Math.round(n(values.calories)), proteinG: n(values.protein), carbsG: n(values.carbs), fatG: n(values.fat) },
+    macros: { calories: Math.round(kcalFromEnergy(n(values.calories), units.energy)), proteinG: n(values.protein), carbsG: n(values.carbs), fatG: n(values.fat) },
     micros: hasMicros ? micros : base?.micros,
   };
 }
@@ -86,11 +92,12 @@ export function FoodEditorScreen() {
   const pendingItem = useReviewStore((s) => s.pending?.items.find((item) => item.id === params.item));
   const libraryFood = useFoodLibraryStore((s) => s.foods.find((food) => food.id === params.food));
   const mode: 'item' | 'food' | 'create' = params.item ? 'item' : params.food ? 'food' : 'create';
+  const units = useSettingsStore((s) => s.units);
 
   const initial = useMemo<Values>(() => {
-    if (mode === 'item' && pendingItem) return valuesFromItem(pendingItem);
-    if (mode === 'food' && libraryFood) return valuesFromItem(itemFromFood(libraryFood));
-    return { ...valuesFromItem(blankItem()), name: params.create ?? '' };
+    if (mode === 'item' && pendingItem) return valuesFromItem(pendingItem, units);
+    if (mode === 'food' && libraryFood) return valuesFromItem(itemFromFood(libraryFood), units);
+    return { ...valuesFromItem(blankItem(), units), name: params.create ?? '' };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [values, setValues] = useState<Values>(initial);
@@ -108,7 +115,7 @@ export function FoodEditorScreen() {
         router.back();
         return;
       }
-      let item = itemFromValues(values, pendingItem);
+      let item = itemFromValues(values, units, pendingItem);
       if (remember) {
         const food = libraryFoodFromItem(item, 'edited', pendingItem.libraryId);
         library.upsert(food);
@@ -116,10 +123,10 @@ export function FoodEditorScreen() {
       }
       useReviewStore.getState().updateItem(item);
     } else if (mode === 'food' && libraryFood) {
-      const food = libraryFoodFromItem(itemFromValues(values), libraryFood.origin === 'learned' ? 'edited' : libraryFood.origin, libraryFood.id);
+      const food = libraryFoodFromItem(itemFromValues(values, units), libraryFood.origin === 'learned' ? 'edited' : libraryFood.origin, libraryFood.id);
       library.upsert({ ...food, aliases: Array.from(new Set([...food.aliases, ...libraryFood.aliases])) });
     } else {
-      const food: LibraryFood = libraryFoodFromItem(itemFromValues(values), 'created');
+      const food: LibraryFood = libraryFoodFromItem(itemFromValues(values, units), 'created');
       library.upsert(food);
       if (params.from !== 'library') useReviewStore.getState().addItems([{ ...itemFromFood(food), libraryId: food.id }]);
     }
@@ -201,18 +208,23 @@ export function FoodEditorScreen() {
               accessibilityLabel="Serving name"
             />
           </Row>
-          <Row label="Weight" unit="g">
-            <NumberInput value={values.grams} onChangeText={set('grams')} label="Weight in grams" />
+          <Row label="Weight" unit={units.food}>
+            <NumberInput value={values.grams} onChangeText={set('grams')} label={`Weight in ${units.food === 'oz' ? 'ounces' : 'grams'}`} />
           </Row>
         </Card>
 
         <GroupLabel>{mode === 'item' ? 'For this portion' : 'Per serving'}</GroupLabel>
         <Card padded={false}>
-          {FIELDS.map((field, index) => (
-            <Row key={field.key} first={index === 0} label={field.label} unit={field.unit} strong={index < 4}>
-              <NumberInput value={values[field.key]} onChangeText={set(field.key)} label={`${field.label} in ${field.unit}`} />
-            </Row>
-          ))}
+          {FIELDS.map((field, index) => {
+            const energy = field.key === 'calories';
+            const label = energy && units.energy === 'kJ' ? 'Energy' : field.label;
+            const unit = energy ? units.energy : field.unit;
+            return (
+              <Row key={field.key} first={index === 0} label={label} unit={unit} strong={index < 4}>
+                <NumberInput value={values[field.key]} onChangeText={set(field.key)} label={`${label} in ${unit}`} />
+              </Row>
+            );
+          })}
         </Card>
 
         {mode === 'item' ? (

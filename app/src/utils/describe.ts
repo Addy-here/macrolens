@@ -1,6 +1,7 @@
 import { FOODS, type Food, type UnitName } from '../data/foods';
 import type { FoodItem, Micros } from '../types';
 import { createId } from './id';
+import { formatMass, type FoodUnit } from './units';
 import type { MealType } from './meals';
 
 /**
@@ -536,7 +537,7 @@ export const SPEECH_HINTS: string[] = FOODS.flatMap((food) => food.aliases.slice
 const FRACTIONS: Record<number, string> = { 0: '', 0.25: '¼', 0.5: '½', 0.75: '¾' };
 
 /** "2 eggs", "½ avocado", "1½ cups", or "150 g". */
-export function portionLabel(item: Pick<FoodItem, 'portionGrams' | 'serving'>) {
+export function portionLabel(item: Pick<FoodItem, 'portionGrams' | 'serving'>, unit: FoodUnit = 'g') {
   if (item.serving && item.serving.grams > 0) {
     const count = Math.round((item.portionGrams / item.serving.grams) * 4) / 4;
     if (count > 0) {
@@ -546,5 +547,5 @@ export function portionLabel(item: Pick<FoodItem, 'portionGrams' | 'serving'>) {
       return `${shown} ${count <= 1 ? item.serving.label : item.serving.plural}`;
     }
   }
-  return `${item.portionGrams} g`;
+  return formatMass(item.portionGrams, unit);
 }

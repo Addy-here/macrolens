@@ -9,6 +9,7 @@ import { Segmented } from './ui/Segmented';
 import { colors, radius, spacing, typography } from '../theme';
 import { portionLabel } from '../utils/describe';
 import { sumMacros } from '../utils/macros';
+import { useUnits } from '../store/useSettingsStore';
 import type { DescribeMode } from '../services/logFlow';
 import type { FoodItem } from '../types';
 
@@ -29,6 +30,7 @@ export function MealPlate({
   onAddMore?: () => void;
 }) {
   const reduceMotion = useReducedMotion();
+  const u = useUnits();
   const known = items.filter((item) => !item.unresolved);
   const totals = sumMacros(known.map((item) => item.macros));
   // With AI chosen, these matches are only a preview of what was heard.
@@ -62,7 +64,7 @@ export function MealPlate({
               accessibilityLabel={
                 item.unresolved
                   ? `${item.name}, not found`
-                  : `${item.name}, ${portionLabel(item)}, ${Math.round(item.macros.calories)} calories`
+                  : `${item.name}, ${portionLabel(item, u.food)}, ${u.energySpoken(item.macros.calories)}`
               }
             >
               <MacroRing macros={item.macros} unknown={item.unresolved} />
@@ -71,11 +73,11 @@ export function MealPlate({
                   {item.name}
                 </Text>
                 <Text style={styles.portion} numberOfLines={1}>
-                  {item.unresolved ? 'Not found' : portionLabel(item)}
+                  {item.unresolved ? 'Not found' : portionLabel(item, u.food)}
                 </Text>
               </View>
               <Text style={[styles.kcal, item.unresolved && styles.unknown]}>
-                {item.unresolved ? '–' : Math.round(item.macros.calories)}
+                {item.unresolved ? '–' : u.energyNumber(item.macros.calories)}
               </Text>
             </Animated.View>
           ))}
@@ -101,9 +103,9 @@ export function MealPlate({
 
       {known.length > 0 ? (
         <Animated.View layout={layout} style={[styles.totals, preview && styles.preview]}>
-          <View style={styles.totalLine} accessible accessibilityLabel={`Total ${Math.round(totals.calories)} calories`}>
-            <Text style={styles.totalNumber}>{Math.round(totals.calories).toLocaleString()}</Text>
-            <Text style={styles.totalUnit}>kcal</Text>
+          <View style={styles.totalLine} accessible accessibilityLabel={`Total ${u.energySpoken(totals.calories)}`}>
+            <Text style={styles.totalNumber}>{u.energyNumber(totals.calories)}</Text>
+            <Text style={styles.totalUnit}>{u.energy}</Text>
           </View>
           <MacroBar macros={totals} />
           <View style={styles.legend}>
