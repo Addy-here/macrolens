@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Tappable } from './Tappable';
 import type { SharedValue } from 'react-native-reanimated';
 import { Icon } from './Icon';
 import { colors, radius, spacing, typography } from '../../theme';
@@ -41,15 +42,16 @@ export function RecordingBar({
 
   return (
     <View style={styles.bar}>
-      <Pressable
+      <Tappable
         accessibilityRole="button"
         accessibilityLabel="Cancel"
         onPress={onCancel}
         hitSlop={6}
-        style={({ pressed }) => [styles.side, styles.cancel, pressed && styles.pressed]}
+        feedback="tile"
+        style={[styles.side, styles.cancel]}
       >
         <Icon name="xmark" size={15} color={colors.textSecondary} weight="bold" />
-      </Pressable>
+      </Tappable>
 
       <View style={styles.wave} accessible accessibilityLabel={`Listening, ${seconds} seconds`}>
         <View style={styles.bars}>
@@ -66,20 +68,21 @@ export function RecordingBar({
         <Text style={styles.time}>{time}</Text>
       </View>
 
-      <Pressable
+      <Tappable
         accessibilityRole="button"
         accessibilityLabel="Finish"
         onPress={onDone}
         disabled={finishing}
         hitSlop={6}
-        style={({ pressed }) => [styles.side, styles.done, pressed && styles.pressed]}
+        feedback="tile"
+        style={[styles.side, styles.done]}
       >
         {finishing ? (
           <ActivityIndicator color={colors.onAccent} />
         ) : (
           <Icon name="checkmark" size={17} color={colors.onAccent} weight="bold" />
         )}
-      </Pressable>
+      </Tappable>
     </View>
   );
 }
@@ -104,9 +107,6 @@ const styles = StyleSheet.create({
   },
   done: {
     backgroundColor: colors.accent,
-  },
-  pressed: {
-    opacity: 0.7,
   },
   wave: {
     flex: 1,

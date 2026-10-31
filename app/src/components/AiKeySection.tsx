@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Tappable } from './ui/Tappable';
 import { GlassButton } from './glass';
 import { Card } from './ui/Card';
 import { GroupLabel, ListRow } from './ui/ListRow';
@@ -106,9 +107,9 @@ export function AiKeySection() {
           subtitle={hasKey ? undefined : 'For photo estimates and AI matching'}
           trailing={
             hasKey ? (
-              <Pressable accessibilityRole="button" onPress={() => void onClear()} hitSlop={8}>
+              <Tappable accessibilityRole="button" onPress={() => void onClear()} hitSlop={8}>
                 <Text style={styles.remove}>Remove</Text>
-              </Pressable>
+              </Tappable>
             ) : undefined
           }
         />

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Tappable } from './ui/Tappable';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 import { Icon } from './ui/Icon';
@@ -83,20 +84,20 @@ export function MealPlate({
           ))}
 
           {onAddMore ? (
-            <Pressable
+            <Tappable
               accessibilityRole="button"
               accessibilityLabel="Add more by voice"
               onPress={() => {
                 void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 onAddMore();
               }}
-              style={({ pressed }) => [styles.row, items.length > 0 && styles.rowDivider, pressed && styles.pressed]}
+              style={[styles.row, items.length > 0 && styles.rowDivider]}
             >
               <View style={styles.addIcon}>
                 <Icon name="mic.fill" size={14} color={colors.onAccent} />
               </View>
               <Text style={styles.addText}>Add more</Text>
-            </Pressable>
+            </Tappable>
           ) : null}
         </Animated.View>
       ) : null}
@@ -188,9 +189,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
     color: colors.accent,
-  },
-  pressed: {
-    opacity: 0.6,
   },
   totals: {
     gap: spacing.sm + 2,

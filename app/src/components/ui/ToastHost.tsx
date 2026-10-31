@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Tappable } from './Tappable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -46,7 +47,7 @@ export function ToastHost() {
           {toast.message}
         </Text>
         {toast.action ? (
-          <Pressable
+          <Tappable
             accessibilityRole="button"
             hitSlop={10}
             onPress={() => {
@@ -56,7 +57,7 @@ export function ToastHost() {
             }}
           >
             <Text style={styles.action}>{toast.action.label}</Text>
-          </Pressable>
+          </Tappable>
         ) : null}
       </Animated.View>
     </View>

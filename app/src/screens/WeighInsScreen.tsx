@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Tappable } from '../components/ui/Tappable';
 import { router, Stack } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../components/ui/Card';
@@ -15,7 +16,7 @@ const HEADER = {
   title: 'Weigh-Ins',
   headerLargeTitleEnabled: false,
   headerRight: () => (
-    <Pressable
+    <Tappable
       accessibilityRole="button"
       accessibilityLabel="Add weigh-in"
       hitSlop={8}
@@ -23,7 +24,7 @@ const HEADER = {
       style={styles.add}
     >
       <Icon name="plus" size={17} color={colors.accent} weight="semibold" />
-    </Pressable>
+    </Tappable>
   ),
 };
 
@@ -63,7 +64,7 @@ export function WeighInsScreen() {
                 const label = u.weightText(entry.weightKg);
                 const change = previous ? entry.weightKg - previous.weightKg : null;
                 return (
-                  <Pressable
+                  <Tappable
                     key={entry.id}
                     accessibilityRole="button"
                     accessibilityLabel={`${when.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}, ${label}${
@@ -76,7 +77,8 @@ export function WeighInsScreen() {
                       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       confirmDeleteWeighIn(entry, label);
                     }}
-                    style={({ pressed }) => [styles.row, index > 0 && styles.divider, pressed && styles.pressed]}
+                    feedback="row"
+                    style={[styles.row, index > 0 && styles.divider]}
                   >
                     <View style={styles.rowText}>
                       <Text style={styles.date}>
@@ -87,7 +89,7 @@ export function WeighInsScreen() {
                     {change != null ? <Text style={styles.change}>{u.weightDelta(change)}</Text> : null}
                     <Text style={styles.weight}>{label}</Text>
                     <Icon name="chevron.right" size={13} color={colors.textTertiary} weight="bold" />
-                  </Pressable>
+                  </Tappable>
                 );
               })}
             </Card>
@@ -140,9 +142,6 @@ const styles = StyleSheet.create({
   divider: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.hairline,
-  },
-  pressed: {
-    backgroundColor: colors.fill,
   },
   rowText: {
     flex: 1,

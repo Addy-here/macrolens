@@ -1,5 +1,6 @@
 import React from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Tappable } from './Tappable';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { ProgressRing } from './ProgressRing';
@@ -42,7 +43,7 @@ export function WeekStrip({
         const progress = progressByDay[key] ?? 0;
 
         return (
-          <Pressable
+          <Tappable
             key={key}
             disabled={future}
             accessibilityRole="button"
@@ -76,7 +77,7 @@ export function WeekStrip({
                 {date.getDate()}
               </Text>
             </ProgressRing>
-          </Pressable>
+          </Tappable>
         );
       })}
     </View>

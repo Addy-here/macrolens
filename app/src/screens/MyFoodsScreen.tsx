@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Tappable } from '../components/ui/Tappable';
 import { router, Stack } from 'expo-router';
 import { Card } from '../components/ui/Card';
 import { Icon } from '../components/ui/Icon';
@@ -13,7 +14,7 @@ const HEADER = {
   title: 'My Foods',
   headerLargeTitleEnabled: false,
   headerRight: () => (
-    <Pressable
+    <Tappable
       accessibilityRole="button"
       accessibilityLabel="New food"
       hitSlop={8}
@@ -21,7 +22,7 @@ const HEADER = {
       style={styles.add}
     >
       <Icon name="plus" size={17} color={colors.accent} weight="semibold" />
-    </Pressable>
+    </Tappable>
   ),
 };
 
@@ -65,11 +66,12 @@ function FoodGroup({ title, foods }: { title: string; foods: LibraryFood[] }) {
         {foods.map((food, index) => {
           const item = itemFromFood(food);
           return (
-            <Pressable
+            <Tappable
               key={food.id}
               accessibilityRole="button"
               onPress={() => router.push({ pathname: '/food-editor', params: { food: food.id } })}
-              style={({ pressed }) => [styles.row, index > 0 && styles.divider, pressed && styles.pressed]}
+              feedback="row"
+              style={[styles.row, index > 0 && styles.divider]}
             >
               <View style={styles.rowText}>
                 <Text style={styles.name} numberOfLines={1}>
@@ -80,7 +82,7 @@ function FoodGroup({ title, foods }: { title: string; foods: LibraryFood[] }) {
                 </Text>
               </View>
               <Icon name="chevron.right" size={13} color={colors.textTertiary} weight="bold" />
-            </Pressable>
+            </Tappable>
           );
         })}
       </Card>
@@ -130,9 +132,6 @@ const styles = StyleSheet.create({
   divider: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.hairline,
-  },
-  pressed: {
-    backgroundColor: colors.fill,
   },
   rowText: {
     flex: 1,

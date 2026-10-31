@@ -89,7 +89,7 @@ it('fires a weigh-in only on the chosen days', async () => {
   ]);
 });
 
-it('says when a reminder fires next and why today was skipped', () => {
+it('says when a reminder fires next, past days already logged', () => {
   const now = new Date(2026, 9, 30, 20, 50); // Friday evening
   const reminders = {
     ...DEFAULT_REMINDERS,
@@ -107,6 +107,6 @@ it('says when a reminder fires next and why today was skipped', () => {
   const slots = planReminders(reminders, [dinner], [weighIn], now);
   expect(slots.find((s) => s.key === 'dinner' && s.dateKey === '2026-10-30')?.status).toBe('done');
   expect(slots.find((s) => s.key === 'weighIn' && s.dateKey === '2026-10-31')?.status).toBe('off');
-  expect(nextReminderLabel('dinner', slots, now)).toBe('Logged today · Next tomorrow');
-  expect(nextReminderLabel('weighIn', slots, now)).toBe('Weighed in today · Next Sunday');
+  expect(nextReminderLabel('dinner', slots, now)).toBe('Next tomorrow');
+  expect(nextReminderLabel('weighIn', slots, now)).toBe('Next Sunday');
 });

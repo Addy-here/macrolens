@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Tappable } from '../components/ui/Tappable';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { router, Stack } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -161,9 +162,9 @@ export function PlanEditorScreen() {
       // Swiping the sheet away would drop edits without asking.
       gestureEnabled: !dirty || !profile,
       headerLeft: () => (
-        <Pressable accessibilityRole="button" hitSlop={8} onPress={() => cancelRef.current()} style={styles.headerButton}>
+        <Tappable accessibilityRole="button" hitSlop={8} onPress={() => cancelRef.current()} style={styles.headerButton}>
           <Text style={styles.headerCancel}>Cancel</Text>
-        </Pressable>
+        </Tappable>
       ),
     }),
     [dirty, profile],

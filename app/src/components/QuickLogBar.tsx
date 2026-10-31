@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Tappable } from './ui/Tappable';
 import { router } from 'expo-router';
 import { NativeTabs } from 'expo-router/native-tabs';
 import type { SFSymbol } from 'expo-symbols';
@@ -25,9 +26,9 @@ export function QuickLogBar() {
   return (
     <View style={[styles.bar, inline && styles.inline]}>
       {inline ? null : (
-        <Pressable accessibilityRole="button" onPress={() => router.navigate('/log')} style={styles.title} hitSlop={6}>
+        <Tappable accessibilityRole="button" onPress={() => router.navigate('/log')} style={styles.title} hitSlop={6}>
           <Text style={styles.titleText}>Log a meal</Text>
-        </Pressable>
+        </Tappable>
       )}
       <Action icon="mic.fill" label="Speak" onPress={() => open({ kind: 'listen' })} />
       <Action icon="camera.fill" label="Photo" onPress={() => open({ kind: 'capture', source: 'camera' })} />
@@ -37,9 +38,9 @@ export function QuickLogBar() {
 
 function Action({ icon, label, onPress }: { icon: SFSymbol; label: string; onPress: () => void }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={6} style={styles.action}>
+    <Tappable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={6} style={styles.action}>
       <Icon name={icon} size={18} color={colors.accent} />
-    </Pressable>
+    </Tappable>
   );
 }
 

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Tappable } from '../components/ui/Tappable';
 import { router, Stack } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../components/ui/Card';
@@ -112,7 +113,7 @@ export function HomeScreen() {
             selectedKey === todayKey
               ? undefined
               : () => (
-                  <Pressable
+                  <Tappable
                     accessibilityRole="button"
                     accessibilityLabel="Back to today"
                     onPress={() => setSelectedKey(todayKey)}
@@ -120,7 +121,7 @@ export function HomeScreen() {
                     style={styles.headerButton}
                   >
                     <Text style={styles.headerButtonText}>Today</Text>
-                  </Pressable>
+                  </Tappable>
                 ),
         }}
       />
@@ -317,7 +318,7 @@ function MealCard({
 
   return (
     <Card padded={false}>
-      <Pressable
+      <Tappable
         accessibilityRole="button"
         accessibilityLabel={`${label}, ${entries.length ? u.energySpoken(calories) : 'nothing logged'}`}
         accessibilityHint={`Log something to ${label.toLowerCase()}`}
@@ -326,6 +327,7 @@ function MealCard({
           useReviewStore.getState().setTarget({ mealType, dateKey });
           router.navigate('/log');
         }}
+        feedback="row"
         style={styles.mealHeader}
       >
         <Icon name={symbol} size={17} color={colors.textSecondary} />
@@ -336,7 +338,7 @@ function MealCard({
         <View style={styles.addButton}>
           <Icon name="plus" size={13} color={colors.accent} weight="bold" />
         </View>
-      </Pressable>
+      </Tappable>
       {entries.map((entry) => (
         <EntryRow key={entry.id} entry={entry} u={u} />
       ))}
@@ -384,7 +386,7 @@ function EntryRow({ entry, u }: { entry: FoodLogEntry; u: BoundUnits }) {
   };
 
   return (
-    <Pressable
+    <Tappable
       onPress={edit}
       onLongPress={showActions}
       accessibilityRole="button"
@@ -398,7 +400,8 @@ function EntryRow({ entry, u }: { entry: FoodLogEntry; u: BoundUnits }) {
         if (event.nativeEvent.actionName === 'again') again();
         if (event.nativeEvent.actionName === 'delete') deleteEntryWithUndo(entry);
       }}
-      style={({ pressed }) => [styles.entry, pressed && styles.entryPressed]}
+      feedback="row"
+      style={styles.entry}
     >
       <FoodThumb uri={entry.photoUri} size={54} symbol={MEALS.find((meal) => meal.key === entry.mealType)?.symbol} />
       <View style={styles.entryBody}>
@@ -412,13 +415,13 @@ function EntryRow({ entry, u }: { entry: FoodLogEntry; u: BoundUnits }) {
         <Text style={styles.entryKcalValue}>{u.energyNumber(entry.totalMacros.calories)}</Text>
         <Text style={styles.entryKcalUnit}>{u.energy}</Text>
       </View>
-    </Pressable>
+    </Tappable>
   );
 }
 
 function WeekButton({ direction, disabled, onPress }: { direction: 1 | -1; disabled?: boolean; onPress: () => void }) {
   return (
-    <Pressable
+    <Tappable
       accessibilityRole="button"
       accessibilityLabel={direction < 0 ? 'Previous week' : 'Next week'}
       accessibilityState={{ disabled }}
@@ -428,7 +431,7 @@ function WeekButton({ direction, disabled, onPress }: { direction: 1 | -1; disab
         void Haptics.selectionAsync();
         onPress();
       }}
-      style={({ pressed }) => [styles.weekButton, pressed && styles.weekButtonPressed]}
+      style={styles.weekButton}
     >
       <Icon
         name={direction < 0 ? 'chevron.left' : 'chevron.right'}
@@ -436,7 +439,7 @@ function WeekButton({ direction, disabled, onPress }: { direction: 1 | -1; disab
         color={disabled ? colors.textTertiary : colors.accent}
         weight="bold"
       />
-    </Pressable>
+    </Tappable>
   );
 }
 
@@ -471,7 +474,7 @@ function WaterCard({ dateKey, u }: { dateKey: string; u: BoundUnits }) {
             <Text style={styles.waterGoal}> of {u.waterText(goalMl)}</Text>
           </Text>
         </View>
-        <Pressable
+        <Tappable
           accessibilityRole="button"
           accessibilityLabel={`Remove a glass, ${u.waterText(glassMl)}`}
           disabled={ml === 0}
@@ -480,8 +483,8 @@ function WaterCard({ dateKey, u }: { dateKey: string; u: BoundUnits }) {
           style={[styles.waterButton, styles.waterMinus, ml === 0 && styles.waterDisabled]}
         >
           <Icon name="minus" size={13} color={colors.textPrimary} weight="bold" />
-        </Pressable>
-        <Pressable
+        </Tappable>
+        <Tappable
           accessibilityRole="button"
           accessibilityLabel={`Add a glass, ${u.waterText(glassMl)}`}
           hitSlop={6}
@@ -489,7 +492,7 @@ function WaterCard({ dateKey, u }: { dateKey: string; u: BoundUnits }) {
           style={styles.waterButton}
         >
           <Icon name="plus" size={13} color={colors.accent} weight="bold" />
-        </Pressable>
+        </Tappable>
       </View>
       <ProgressBar progress={goalMl > 0 ? ml / goalMl : 0} color={colors.water} height={6} />
     </Card>
@@ -534,9 +537,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.fill,
-  },
-  weekButtonPressed: {
-    opacity: 0.6,
   },
   setup: {
     flexDirection: 'row',
@@ -723,9 +723,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 4,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.hairline,
-  },
-  entryPressed: {
-    backgroundColor: colors.fill,
   },
   entryBody: {
     flex: 1,

@@ -30,6 +30,7 @@ A light food log in the system idiom. Every tab root has a native collapsing lar
 - Screens with a text field scroll in `KeyboardAwareScrollView` (react-native-keyboard-controller), except Log (plain `ScrollView` + keyboard spacer); never `automaticallyAdjustKeyboardInsets`, never `scrollEnabled={false}` on a multiline field. Live transcripts render as `Text`, never an editable field.
 - Log's card: prompt, words, `MealPlate` (macro rings, Add more, total + `MacroBar`), one Review. Controls sit with what they act on; no stacked buttons.
 - Source badges follow the item's name. Portions read as fractions (“½ avocado”).
+- Touch targets are `Tappable` with `row`, `dim`, or `tile` feedback; rows sit in an unpadded `Card`, which clips them to its corners.
 - Numbers go through `useUnits()`; never hard-code "kg" or "kcal". Tab screens with the Log a meal bar end with `spacing.tabBottom`.
 - Check every touched screen at `accessibility-medium` text: one-line hero numbers, units that widen instead of breaking, chips that stack.
 

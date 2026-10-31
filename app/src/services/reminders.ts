@@ -147,21 +147,17 @@ export function planReminders(
   return slots;
 }
 
-/** "Next today", or "Logged today · Next tomorrow" when today's was skipped for that reason. The time is beside it in the row. */
+/** "Next today", "Next tomorrow", "Next Monday" — the time sits beside it in the row. */
 export function nextReminderLabel(key: ReminderKey, slots: ReminderSlot[], now = new Date()) {
-  const mine = slots.filter((slot) => slot.key === key);
-  const todayKey = localDateKey(now);
-  const doneToday = mine.some((slot) => slot.dateKey === todayKey && slot.status === 'done');
-  const next = mine.find((slot) => slot.status === 'scheduled');
-  const day = !next
-    ? null
-    : next.dateKey === todayKey
+  const next = slots.find((slot) => slot.key === key && slot.status === 'scheduled');
+  if (!next) return '';
+  const day =
+    next.dateKey === localDateKey(now)
       ? 'today'
       : next.dateKey === localDateKey(addDays(now, 1))
         ? 'tomorrow'
         : next.at.toLocaleDateString(undefined, { weekday: 'long' });
-  const parts = [doneToday ? (key === 'weighIn' ? 'Weighed in today' : 'Logged today') : null, day ? `Next ${day}` : null];
-  return parts.filter(Boolean).join(' · ');
+  return `Next ${day}`;
 }
 
 /** A notification in a few seconds, to check that reminders reach this iPhone. */

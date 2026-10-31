@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Tappable } from './Tappable';
 import type { SFSymbol } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
 import { Icon } from './Icon';
@@ -78,7 +79,7 @@ export function ListRow({
   }
 
   return (
-    <Pressable
+    <Tappable
       accessibilityRole="button"
       accessibilityState={selected != null ? { selected } : undefined}
       accessibilityHint={subtitle}
@@ -86,10 +87,11 @@ export function ListRow({
         void Haptics.selectionAsync();
         onPress();
       }}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      feedback="row"
+      style={styles.row}
     >
       {content}
-    </Pressable>
+    </Tappable>
   );
 }
 
@@ -116,9 +118,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingLeft: spacing.md,
     minHeight: 48,
-  },
-  pressed: {
-    backgroundColor: colors.fill,
   },
   tile: {
     width: 30,

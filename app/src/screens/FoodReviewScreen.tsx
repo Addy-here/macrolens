@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Alert, Platform, StyleSheet, Text, View } from 'react-native';
+import { Tappable } from '../components/ui/Tappable';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
@@ -71,7 +72,7 @@ export function FoodReviewScreen() {
       headerStyle: { backgroundColor: colors.background },
       headerTitleStyle: { color: colors.textPrimary },
       headerRight: () => (
-        <Pressable
+        <Tappable
           accessibilityRole="button"
           accessibilityLabel="Close"
           hitSlop={10}
@@ -82,7 +83,7 @@ export function FoodReviewScreen() {
           style={styles.close}
         >
           <Icon name="xmark" size={15} color={colors.textPrimary} weight="semibold" />
-        </Pressable>
+        </Tappable>
       ),
     }),
     [editingHeader],
@@ -204,16 +205,16 @@ export function FoodReviewScreen() {
             <Text style={styles.quoteText}>“{pending.transcript}”</Text>
             {pending.aiNote ? <Text style={styles.aiNote}>{pending.aiNote}</Text> : null}
             {canRecheck ? (
-              <Pressable
+              <Tappable
                 accessibilityRole="button"
                 disabled={rechecking}
                 onPress={() => void recheck()}
                 hitSlop={6}
-                style={({ pressed }) => [styles.askAI, pressed && styles.pressed]}
+                style={styles.askAI}
               >
                 <Icon name="sparkles" size={13} color={colors.accent} />
                 <Text style={styles.askAIText}>{rechecking ? 'Asking…' : 'Ask AI'}</Text>
-              </Pressable>
+              </Tappable>
             ) : null}
           </View>
         ) : null}
@@ -245,13 +246,13 @@ export function FoodReviewScreen() {
           onChange={setMealType}
         />
         {nudge ? (
-          <Pressable accessibilityRole="button" onPress={() => setMealType(nudge)} style={styles.nudge} hitSlop={4}>
+          <Tappable accessibilityRole="button" onPress={() => setMealType(nudge)} style={styles.nudge} hitSlop={4}>
             <Icon name="clock" size={13} color={colors.textSecondary} />
             <Text style={styles.nudgeText}>
               It’s {new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}.{' '}
               <Text style={styles.nudgeAction}>Log as {mealLabel(nudge)}</Text>
             </Text>
-          </Pressable>
+          </Tappable>
         ) : null}
         <Card padded={false}>
           <ListRow first icon="calendar" tint={colors.tile.orange} title="Day" value={dayLabel(dateKey)} accessory="chevron" onPress={chooseDay} />
@@ -262,19 +263,19 @@ export function FoodReviewScreen() {
           <ItemCard key={food.id} food={food} />
         ))}
 
-        <Pressable
+        <Tappable
           accessibilityRole="button"
           onPress={() => router.push('/search?mode=add')}
-          style={({ pressed }) => [styles.addItem, pressed && styles.pressed]}
+          style={styles.addItem}
         >
           <Icon name="plus.circle.fill" size={20} color={colors.accent} weight="regular" />
           <Text style={styles.addItemText}>Add item</Text>
-        </Pressable>
+        </Tappable>
 
         {editing ? (
-          <Pressable accessibilityRole="button" onPress={deleteMeal} style={styles.deleteMeal}>
+          <Tappable accessibilityRole="button" onPress={deleteMeal} style={styles.deleteMeal}>
             <Text style={styles.deleteMealText}>Delete Meal</Text>
-          </Pressable>
+          </Tappable>
         ) : null}
       </KeyboardAwareScrollView>
 
@@ -331,11 +332,11 @@ function ItemCard({ food }: { food: FoodItem }) {
 
   return (
     <Card style={styles.item}>
-      <Pressable
+      <Tappable
         accessibilityRole="button"
         accessibilityLabel={`${food.name}, ${u.energySpoken(food.macros.calories)}. Edit nutrition`}
         onPress={() => router.push({ pathname: '/food-editor', params: { item: food.id } })}
-        style={({ pressed }) => [styles.itemTap, pressed && styles.pressed]}
+        style={styles.itemTap}
       >
         <View style={styles.itemHeader}>
           <View style={styles.itemTitle}>
@@ -353,7 +354,7 @@ function ItemCard({ food }: { food: FoodItem }) {
             {food.serving ? <Text style={styles.metaText}>{u.massText(food.portionGrams)}</Text> : null}
           </View>
         )}
-      </Pressable>
+      </Tappable>
       <View style={styles.itemControls}>
         {quick ? (
           <Stepper
@@ -392,9 +393,9 @@ function ItemCard({ food }: { food: FoodItem }) {
 
 function RemoveButton({ name, onPress }: { name: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Remove ${name}`} hitSlop={8} style={styles.remove}>
+    <Tappable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Remove ${name}`} hitSlop={8} style={styles.remove}>
       <Icon name="trash" size={16} color={colors.textTertiary} weight="medium" />
-    </Pressable>
+    </Tappable>
   );
 }
 
@@ -435,9 +436,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  pressed: {
-    opacity: 0.6,
   },
   close: {
     width: 36,

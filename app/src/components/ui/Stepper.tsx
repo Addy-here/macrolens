@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Tappable } from './Tappable';
 import * as Haptics from 'expo-haptics';
 import { Icon } from './Icon';
 import { colors, radius, typography } from '../../theme';
@@ -54,9 +55,9 @@ export function Stepper({
       accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
       onAccessibilityAction={(event) => nudge(event.nativeEvent.actionName === 'increment' ? 1 : -1)}
     >
-      <Pressable hitSlop={6} onPress={() => nudge(-1)} style={styles.button} importantForAccessibility="no">
+      <Tappable hitSlop={6} onPress={() => nudge(-1)} style={styles.button} importantForAccessibility="no">
         <Icon name="minus" size={14} color={colors.textPrimary} weight="bold" />
-      </Pressable>
+      </Tappable>
       <View style={styles.valueWrap}>
         <TextInput
           value={draft}
@@ -69,9 +70,9 @@ export function Stepper({
         />
         <Text style={styles.unit}>{unit}</Text>
       </View>
-      <Pressable hitSlop={6} onPress={() => nudge(1)} style={styles.button} importantForAccessibility="no">
+      <Tappable hitSlop={6} onPress={() => nudge(1)} style={styles.button} importantForAccessibility="no">
         <Icon name="plus" size={14} color={colors.textPrimary} weight="bold" />
-      </Pressable>
+      </Tappable>
     </View>
   );
 }

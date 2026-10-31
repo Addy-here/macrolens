@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Tappable } from '../components/ui/Tappable';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import type { SearchBarCommands } from 'react-native-screens';
@@ -133,9 +134,9 @@ export function SearchScreen() {
       headerStyle: { backgroundColor: colors.background },
       headerTitleStyle: { color: colors.textPrimary },
       headerRight: () => (
-        <Pressable accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} onPress={() => router.back()} style={styles.close}>
+        <Tappable accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} onPress={() => router.back()} style={styles.close}>
           <Icon name="xmark" size={15} color={colors.textPrimary} weight="semibold" />
-        </Pressable>
+        </Tappable>
       ),
       headerSearchBarOptions: {
         ref: searchBar,
@@ -185,14 +186,14 @@ export function SearchScreen() {
             {results.length > 0 ? <Section title="Results" rows={results} added={added} onAdd={add} /> : null}
             {!showQuick ? (
               <Card padded={false} style={results.length > 0 ? styles.createAfter : undefined}>
-                <Pressable accessibilityRole="button" onPress={create} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+                <Tappable accessibilityRole="button" onPress={create} feedback="row" style={styles.row}>
                   <View style={styles.addButton}>
                     <Icon name="plus" size={13} color={colors.accent} weight="bold" />
                   </View>
                   <Text style={styles.createText} numberOfLines={1}>
                     Create “{trimmed}”
                   </Text>
-                </Pressable>
+                </Tappable>
               </Card>
             ) : null}
           </>
@@ -258,11 +259,12 @@ function ResultRow({
   const { item } = row;
   const u = useUnits();
   return (
-    <Pressable
+    <Tappable
       accessibilityRole="button"
       accessibilityLabel={`Add ${item.name}, ${detail ?? portionLabel(item, u.food)}, ${u.energySpoken(item.macros.calories)}${count ? `, added ${count}` : ''}`}
       onPress={() => onAdd(row)}
-      style={({ pressed }) => [styles.row, !first && styles.divider, pressed && styles.pressed]}
+      feedback="row"
+      style={[styles.row, !first && styles.divider]}
     >
       <View style={styles.rowText}>
         <View style={styles.rowTitle}>
@@ -285,7 +287,7 @@ function ResultRow({
           <Icon name="plus" size={13} color={colors.accent} weight="bold" />
         </View>
       )}
-    </Pressable>
+    </Tappable>
   );
 }
 
@@ -317,9 +319,6 @@ const styles = StyleSheet.create({
   divider: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.hairline,
-  },
-  pressed: {
-    backgroundColor: colors.fill,
   },
   rowText: {
     flex: 1,

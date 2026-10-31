@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Tappable } from './Tappable';
 import { Image } from 'expo-image';
 import Animated, {
   cancelAnimation,
@@ -37,13 +38,13 @@ export function PhotoScan({
         <View style={styles.overlay} accessibilityRole="alert">
           <Text style={styles.errorText}>{error}</Text>
           <View style={styles.actions}>
-            <Pressable accessibilityRole="button" onPress={onDiscard} style={styles.action} hitSlop={6}>
+            <Tappable accessibilityRole="button" onPress={onDiscard} style={styles.action} hitSlop={6}>
               <Text style={styles.actionText}>Discard</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={onRetry} style={[styles.action, styles.actionPrimary]} hitSlop={6}>
+            </Tappable>
+            <Tappable accessibilityRole="button" onPress={onRetry} style={[styles.action, styles.actionPrimary]} hitSlop={6}>
               <Icon name="arrow.clockwise" size={13} color={colors.textPrimary} />
               <Text style={[styles.actionText, styles.actionTextPrimary]}>Retry</Text>
-            </Pressable>
+            </Tappable>
           </View>
         </View>
       ) : (

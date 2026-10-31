@@ -2,6 +2,7 @@ import React from 'react';
 import { usePathname } from 'expo-router';
 import { NativeTabs } from 'expo-router/native-tabs';
 import { QuickLogBar } from '../../src/components/QuickLogBar';
+import { useQuickActions } from '../../src/services/quickActions';
 import { colors } from '../../src/theme';
 
 /**
@@ -13,6 +14,7 @@ import { colors } from '../../src/theme';
 export default function TabsLayout() {
   // Log has Speak and Photo in its own card; the quick-log bar would repeat them there.
   const onLog = usePathname().startsWith('/log');
+  useQuickActions();
   return (
     <NativeTabs tintColor={colors.accent} minimizeBehavior="onScrollDown">
       {onLog ? null : (

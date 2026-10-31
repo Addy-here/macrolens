@@ -47,7 +47,11 @@ Stored metric (kg, cm, kcal, g, ml); shown and typed in the person's units (Sett
 - **Plan editor** (`/plan-editor`, page sheet): goal (Lose / Maintain / Gain), goal weight, pace, body, activity, macros (presets or a custom split that must add to 100%), daily target (Calculated / Custom), weekends. The preview card leads; the pinned footer is the one primary: "Save · 2,180 kcal a day", or why it can't save. Swiping away with edits asks first. First run (no profile) starts with the weights empty.
 - **Weigh-ins** (`/plan/weights` list by month, `/weigh-in` sheet with date and time): tap to correct, hold or the sheet's Delete to remove, with Undo.
 - **Settings** is preferences only: Units, General (week start, Reminders), Water, Food (My Foods, AI), Data (backup, CSV, Delete All Data), About. Goals and body stats never appear here.
-- **Reminders**: meals and weigh-in as local notifications, a week scheduled ahead and skipped on days already logged. The weigh-in picks its days with seven day toggles in calendar order (at least one stays on). Each reminder that's on says when it fires next and why today was skipped ("Logged today · Next tomorrow"), from `planReminders` — the same plan the scheduler follows; one static footnote states the skip rule. "Send a Test" delivers one in 5 seconds. At large text the time moves to its own row.
+- **Reminders**: meals and weigh-in as local notifications, a week scheduled ahead and skipped on days already logged. The weigh-in picks its days with seven day toggles in calendar order (at least one stays on). Each reminder that's on says only when it fires next ("Next tomorrow"; the time is beside it), from `planReminders` — the same plan the scheduler follows; one static footnote states the skip rule. "Send a Test" delivers one in 5 seconds. At large text the time moves to its own row.
+
+## Home Screen quick actions
+
+Touch and hold the app icon: Say a Meal, Snap a Meal, Search Foods, Log Weight — Apple's limit is four, so these are the four reasons to open a food log (`services/quickActions.ts`, `expo-quick-actions`). SF Symbols, no subtitles. Each runs the same path as the button it mirrors: the quick-log bar's Speak and Photo, Log's Search, Plan's Other Day weigh-in. Any open sheet is dismissed first.
 
 ## Type
 
@@ -55,7 +59,8 @@ System font. SF Pro Rounded (`ui-rounded`) for figures only: `hero` 52, `statLar
 
 ## Components (`app/src/components/ui`)
 
-- `Card` — white card, pads itself by default (`padded={false}` for edge-to-edge rows).
+- `Card` — white card, pads itself by default (`padded={false}` for edge-to-edge rows). An unpadded card clips its content to the rounded corners on an inner view (clipping the card would cut its shadow), so a pressed row's fill follows the curve.
+- `Tappable` — every touch target. `feedback` from `theme/press.ts`: `row` (gray fill, edge-to-edge list rows), `dim` (opacity 0.4: text buttons, icons, small circles, segments, days — the default), `tile` (dim + 0.97 press-in: big tiles, capsules, the recording bar's buttons; `GlassButton` uses it too). Don't hand-roll a pressed style.
 - `ProgressRing` — springs to its value, honours Reduce Motion, stays full past 100%.
 - `ProgressBar` — capsule meter on a light step of its own hue.
 - `WeekStrip` — Sunday-start week; every past day carries a thin calorie ring; the selected day is accent Liquid Glass (solid accent off iOS 26); future days are disabled.
@@ -83,6 +88,8 @@ System font. SF Pro Rounded (`ui-rounded`) for figures only: `hero` 52, `statLar
 - `GlassButton` — capsule. Primary is accent-tinted Liquid Glass on iOS 26 (solid accent elsewhere) with a soft accent lift. Secondary is a white capsule — clear glass on a flat page has nothing to refract and reads as missing. One primary per screen.
 
 ## Motion and feedback
+
+Every control shows it was touched, one of three ways by shape (`Tappable`, see Components); no square highlight inside a rounded card.
 
 Springs from `tokens.springs` for rings, bars, and segmented thumbs; all check `useReducedMotion()`. Haptics: selection on day / segment / step / scrub, light-medium impact on buttons, success on log and weigh-in, error on a failed estimate. Delight moments are tied to the job: the staged "Finding foods → Estimating portions → Adding up macros" scan, and the check-mark confirmation when a meal is logged.
 

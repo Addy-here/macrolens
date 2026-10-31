@@ -691,3 +691,21 @@ would rewrite history, and rounding would drift). Recomputing the target
 from measured data on every edit without a check-in (the number would move
 under people without a reason shown). Keeping body stats in Settings
 (they only exist to compute the plan).
+
+## 2026-10-31 — Home Screen quick actions
+
+**Decision:** Four quick actions on the app icon (Say a Meal, Snap a Meal,
+Search Foods, Log Weight) via `expo-quick-actions`, registered at runtime
+from the tabs layout, which handles the one that launched the app. A new
+native module — rebuild the dev build.
+
+**Why:** The user asked for app icon options. Apple's HIG allows four
+app-specific actions and expects at least one; the leading trackers use
+them for logging food and weight. These four are the app's own entry points
+(the quick-log bar, Search, the weigh-in sheet), so they behave exactly like
+the buttons they mirror.
+
+**Alternatives considered:** Static `UIApplicationShortcutItems` in
+Info.plist (still needs native code to receive the tap); a "Log again: last
+meal" dynamic action (only four slots, and logging food or weight are the
+everyday jobs); a water action (water is a toggle-off feature).

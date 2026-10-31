@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Tappable } from '../components/ui/Tappable';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -162,14 +163,14 @@ export function FoodEditorScreen() {
       headerStyle: { backgroundColor: colors.background },
       headerTitleStyle: { color: colors.textPrimary },
       headerLeft: () => (
-        <Pressable accessibilityRole="button" hitSlop={8} onPress={() => router.back()} style={styles.headerButton}>
+        <Tappable accessibilityRole="button" hitSlop={8} onPress={() => router.back()} style={styles.headerButton}>
           <Text style={styles.headerCancel}>Cancel</Text>
-        </Pressable>
+        </Tappable>
       ),
       headerRight: () => (
-        <Pressable accessibilityRole="button" hitSlop={8} disabled={!canSave} onPress={() => saveRef.current()} style={styles.headerButton}>
+        <Tappable accessibilityRole="button" hitSlop={8} disabled={!canSave} onPress={() => saveRef.current()} style={styles.headerButton}>
           <Text style={[styles.headerSave, !canSave && styles.disabled]}>Save</Text>
-        </Pressable>
+        </Tappable>
       ),
     }),
     [canSave, mode],
@@ -236,9 +237,9 @@ export function FoodEditorScreen() {
         ) : null}
 
         {mode === 'food' ? (
-          <Pressable accessibilityRole="button" onPress={remove} style={styles.delete}>
+          <Tappable accessibilityRole="button" onPress={remove} style={styles.delete}>
             <Text style={styles.deleteText}>Delete Food</Text>
-          </Pressable>
+          </Tappable>
         ) : null}
       </KeyboardAwareScrollView>
     </View>

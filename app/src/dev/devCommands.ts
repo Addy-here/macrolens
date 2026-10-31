@@ -5,6 +5,7 @@ import { useLogIntentStore } from '../store/useLogIntentStore';
 import { clearAllData, makeCheckInDue, seedSampleData, stageSampleReview, whenStoresHydrated } from './sampleData';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { METRIC, US } from '../utils/units';
+import { runQuickAction } from '../services/quickActions';
 
 /**
  * Development only. Drives the app without touching it, for checking work in
@@ -22,7 +23,7 @@ import { METRIC, US } from '../utils/units';
  */
 
 export type DevParams = Partial<
-  Record<'seed' | 'clear' | 'go' | 'y' | 'review' | 'action' | 'aikey' | 'say' | 'speak' | 'units' | 'checkin' | 'scroll', string>
+  Record<'seed' | 'clear' | 'go' | 'y' | 'review' | 'action' | 'aikey' | 'say' | 'speak' | 'units' | 'checkin' | 'scroll' | 'quick', string>
 >;
 
 interface DevState {
@@ -88,6 +89,8 @@ export async function runDevCommand(params: DevParams) {
     }
   }
 
+  // Run a Home Screen quick action as if it was chosen from the app icon: quick=weigh
+  if (params.quick) runQuickAction(params.quick);
   if (params.go) {
     const go = params.go as Href;
     if (router.canDismiss()) router.dismissAll();

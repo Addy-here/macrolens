@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Tappable } from './Tappable';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useAnimatedStyle,
@@ -56,7 +57,7 @@ export function Segmented<T extends string | number>({
       {options.map((option) => {
         const selected = option.value === value;
         return (
-          <Pressable
+          <Tappable
             key={String(option.value)}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
@@ -70,7 +71,7 @@ export function Segmented<T extends string | number>({
             <Text style={[styles.label, selected && styles.labelOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
               {option.label}
             </Text>
-          </Pressable>
+          </Tappable>
         );
       })}
     </View>

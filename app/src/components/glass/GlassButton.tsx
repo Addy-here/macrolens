@@ -13,7 +13,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import type { SFSymbol } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
 import { Icon } from '../ui/Icon';
-import { colors, radius, shadow, typography } from '../../theme';
+import { colors, press, radius, shadow, typography } from '../../theme';
 
 type Variant = 'primary' | 'secondary' | 'tonal';
 
@@ -70,7 +70,7 @@ export function GlassButton({
         styles.wrap,
         primary && !disabled && styles.lift,
         variant === 'secondary' && !disabled && shadow.card,
-        pressed && !glass && styles.pressed,
+        pressed && !glass && press.tile,
         style,
       ]}
     >
@@ -107,10 +107,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.22,
     shadowRadius: 14,
-  },
-  pressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.98 }],
   },
   base: {
     minHeight: 54,

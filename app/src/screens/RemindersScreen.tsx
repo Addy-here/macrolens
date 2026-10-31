@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, AppState, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
+import { Alert, AppState, Linking, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
+import { Tappable } from '../components/ui/Tappable';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack } from 'expo-router';
@@ -38,7 +39,7 @@ export function RemindersScreen() {
   const weekStartsOn = useSettingsStore((s) => s.weekStartsOn);
   const entries = useFoodLogStore((s) => s.entries);
   const weights = usePlanStore((s) => s.weightHistory);
-  // The same plan the scheduler follows, so each row can say when it fires next and why today was skipped.
+  // The same plan the scheduler follows, so each row can say when it next fires.
   const slots = useMemo(() => planReminders(reminders, entries, weights), [reminders, entries, weights]);
   const { fontScale } = useWindowDimensions();
   const [permission, setPermission] = useState<PermissionState>('undetermined');
@@ -191,7 +192,7 @@ function WeekdayPicker({
         const selected = on.has(day);
         const last = selected && on.size === 1;
         return (
-          <Pressable
+          <Tappable
             key={day}
             accessibilityRole="button"
             accessibilityLabel={NAMES[day]}
@@ -208,7 +209,7 @@ function WeekdayPicker({
             style={[styles.weekday, selected && styles.weekdayOn]}
           >
             <Text style={[styles.weekdayText, selected && styles.weekdayTextOn]}>{LETTERS[day]}</Text>
-          </Pressable>
+          </Tappable>
         );
       })}
     </View>

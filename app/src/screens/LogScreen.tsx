@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Alert, Linking, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Tappable } from '../components/ui/Tappable';
 import { router, useFocusEffect } from 'expo-router';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import type { SFSymbol } from 'expo-symbols';
@@ -317,7 +318,7 @@ export function LogScreen() {
               {listening ? 'Listening…' : PROMPTS[target?.mealType ?? suggestedMeal(new Date())]}
             </Text>
             {hasText && !voice.active && !photo ? (
-              <Pressable
+              <Tappable
                 accessibilityRole="button"
                 accessibilityLabel="Clear"
                 hitSlop={8}
@@ -329,10 +330,10 @@ export function LogScreen() {
                   setMessage(null);
                   voice.clearError();
                 }}
-                style={({ pressed }) => [styles.clear, pressed && styles.pressed]}
+                style={styles.clear}
               >
                 <Icon name="xmark" size={13} color={colors.textSecondary} weight="bold" />
-              </Pressable>
+              </Tappable>
             ) : null}
           </View>
 
@@ -409,9 +410,9 @@ export function LogScreen() {
             <View style={styles.error} accessibilityRole="alert">
               <Text style={styles.errorText}>{error}</Text>
               {voice.error?.needsSettings ? (
-                <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()}>
+                <Tappable accessibilityRole="button" onPress={() => void Linking.openSettings()}>
                   <Text style={styles.errorAction}>Open Settings</Text>
-                </Pressable>
+                </Tappable>
               ) : null}
             </View>
           ) : null}
@@ -435,7 +436,7 @@ export function LogScreen() {
             style={styles.recentScroller}
           >
             {recent.map((entry) => (
-              <Pressable
+              <Tappable
                 key={entry.id}
                 accessibilityRole="button"
                 accessibilityLabel={`Log ${entryTitle(entry.items)} again, ${u.energySpoken(entry.totalMacros.calories)}`}
@@ -444,14 +445,15 @@ export function LogScreen() {
                   stageAgain(entry);
                   router.push('/review');
                 }}
-                style={({ pressed }) => [styles.recent, pressed && styles.pressed]}
+                feedback="tile"
+                style={styles.recent}
               >
                 <FoodThumb uri={entry.photoUri} size={112} symbol={MEALS.find((meal) => meal.key === entry.mealType)?.symbol} />
                 <Text style={styles.recentTitle} numberOfLines={2}>
                   {entryTitle(entry.items)}
                 </Text>
                 <Text style={styles.recentKcal}>{u.energyText(entry.totalMacros.calories)}</Text>
-              </Pressable>
+              </Tappable>
             ))}
           </ScrollView>
         </>
@@ -470,14 +472,14 @@ function TargetChip({ mealType, dateKey }: { mealType: Parameters<typeof mealLab
       <Text style={styles.targetText}>
         {mealLabel(mealType)}, {day}
       </Text>
-      <Pressable
+      <Tappable
         accessibilityRole="button"
         accessibilityLabel="Stop adding to this meal"
         hitSlop={10}
         onPress={() => useReviewStore.getState().setTarget(null)}
       >
         <Icon name="xmark" size={11} color={colors.textSecondary} weight="bold" />
-      </Pressable>
+      </Tappable>
     </View>
   );
 }
@@ -485,37 +487,39 @@ function TargetChip({ mealType, dateKey }: { mealType: Parameters<typeof mealLab
 /** One of the two equal ways to start: a soft tile with its symbol in an accent disc. */
 function CaptureTile({ icon, label, onPress }: { icon: SFSymbol; label: string; onPress: () => void }) {
   return (
-    <Pressable
+    <Tappable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={() => {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         onPress();
       }}
-      style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+      feedback="tile"
+      style={styles.tile}
     >
       <View style={styles.tileDisc}>
         <Icon name={icon} size={22} color={colors.onAccent} />
       </View>
       <Text style={styles.tileLabel}>{label}</Text>
-    </Pressable>
+    </Tappable>
   );
 }
 
 function Method({ icon, title, onPress }: { icon: SFSymbol; title: string; onPress: () => void }) {
   return (
-    <Pressable
+    <Tappable
       accessibilityRole="button"
       accessibilityLabel={title}
       onPress={() => {
         void Haptics.selectionAsync();
         onPress();
       }}
-      style={({ pressed }) => [styles.method, pressed && styles.pressed]}
+      feedback="tile"
+      style={styles.method}
     >
       <Icon name={icon} size={17} color={colors.accent} />
       <Text style={styles.methodTitle}>{title}</Text>
-    </Pressable>
+    </Tappable>
   );
 }
 
@@ -528,9 +532,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.gutter,
     paddingTop: spacing.xs,
     paddingBottom: spacing.xl,
-  },
-  pressed: {
-    opacity: 0.7,
   },
   target: {
     flexDirection: 'row',
@@ -613,10 +614,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg - 4,
     borderCurve: 'continuous',
     backgroundColor: colors.accentSoft,
-  },
-  tilePressed: {
-    opacity: 0.75,
-    transform: [{ scale: 0.97 }],
   },
   tileDisc: {
     width: 48,

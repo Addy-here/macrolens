@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Tappable } from '../components/ui/Tappable';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { router, Stack } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -82,9 +83,9 @@ export function PlanScreen() {
         options={{
           headerRight: profile
             ? () => (
-                <Pressable accessibilityRole="button" hitSlop={8} onPress={openEditor} style={styles.headerButton}>
+                <Tappable accessibilityRole="button" hitSlop={8} onPress={openEditor} style={styles.headerButton}>
                   <Text style={styles.headerButtonText}>Edit</Text>
-                </Pressable>
+                </Tappable>
               )
             : undefined,
         }}
@@ -106,9 +107,9 @@ export function PlanScreen() {
           title="Weight"
           trailing={
             series.length ? (
-              <Pressable accessibilityRole="button" hitSlop={8} onPress={() => router.push('/plan/weights')}>
+              <Tappable accessibilityRole="button" hitSlop={8} onPress={() => router.push('/plan/weights')}>
                 <Text style={styles.link}>All Weigh-Ins</Text>
-              </Pressable>
+              </Tappable>
             ) : undefined
           }
         />
@@ -148,9 +149,9 @@ export function PlanScreen() {
         <SectionHeader
           title="Weigh in"
           trailing={
-            <Pressable accessibilityRole="button" hitSlop={8} onPress={() => router.push('/weigh-in')}>
+            <Tappable accessibilityRole="button" hitSlop={8} onPress={() => router.push('/weigh-in')}>
               <Text style={styles.link}>Other Day</Text>
-            </Pressable>
+            </Tappable>
           }
         />
         <Card>

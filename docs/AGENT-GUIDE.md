@@ -113,7 +113,8 @@ Keys: `seed`, `clear`, `go` (URL-encoded route), `y` (`-1` scrolls to the
 end; iOS doesn't clamp a large offset), `scroll` (`screen:y`, scrolls an open
 screen without navigating, e.g. `plan-editor:1200`), `units` (`metric`,
 `us`, `uk`, `au`, or `weight:st,energy:kJ`), `checkin` (make the weekly
-check-in due), `review`, `action`,
+check-in due), `quick` (run a Home Screen quick action: `speak`, `photo`,
+`search`, `weigh`; long-press can't be done headless), `review`, `action`,
 `aikey` (1/0: act as if an AI key is saved — real requests still fail),
 `say` (prefill Log), `speak` (a WAV path to transcribe instead of the mic;
 16 kHz mono, e.g. `say -o x.aiff "…"` + `afconvert -f WAVE -d LEI16@16000
