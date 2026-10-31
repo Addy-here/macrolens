@@ -25,6 +25,8 @@ export interface PendingReview {
   aiUsed?: boolean;
   /** Why the AI couldn't be used, when it was asked for. */
   aiNote?: string;
+  /** Which backup model answered, and why the chosen one didn't. */
+  modelNote?: string;
   /** Set when editing a meal that is already in the log. */
   entryId?: string;
   loggedAt?: string;

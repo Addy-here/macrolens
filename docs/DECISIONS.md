@@ -709,3 +709,41 @@ the buttons they mirror.
 Info.plist (still needs native code to receive the tap); a "Log again: last
 meal" dynamic action (only four slots, and logging food or weight are the
 everyday jobs); a water action (water is a toggle-off feature).
+
+## 2026-10-31 — OpenRouter, live model lists, switching between providers
+
+**Decision:**
+- **OpenRouter** is a fourth provider (`https://openrouter.ai/api/v1/chat/completions`,
+  OpenAI-style, with its attribution headers). JSON mode is sent only to
+  models whose catalog entry lists `response_format`.
+- **Live model lists** (`services/aiModels.ts`): OpenRouter's public
+  `/api/v1/models`, and the others' list endpoints once a key is saved,
+  cached in AsyncStorage for a day and refreshable by pull. Only models that
+  take images and answer only in text, and not `:batch` variants, are shown,
+  since photo estimates need both. Any listed id can be chosen; the old
+  hard-coded lists are only the starting point.
+- **Switching is between providers, never between models of one provider.**
+  Each provider keeps one chosen model. When the main provider's model
+  answers 429, 404 (or a 400 naming the model), 402, 5xx/529, or OpenRouter's
+  200-with-error, the next backup provider that has a saved key is tried with
+  its own model and key. A main provider's 401/403 stops (the person must fix
+  the key); a backup's own failure just moves on. Failed models rest 2 min
+  (rate limit), 5 min (overloaded), 30 min (credits), 60 min (gone) and are
+  tried last meanwhile. The order is the person's list, then any provider
+  not yet placed; removed providers are remembered. A switch can be turned off.
+- **Telling the person every time:** a toast at the moment of the switch and
+  `PendingReview.modelNote` shown on Review. Not a push notification: the
+  person is in the app waiting for the estimate.
+- **Pushed tab screens** pad for the tab bar themselves
+  (`usePushedTabPadding`); iOS leaves it out of their automatic inset, which
+  hid the last rows of Weigh-Ins, Reminders, AI, My Foods, and the model list.
+
+**Why:** The user asked for OpenRouter with a fetched, searchable model list
+and for automatic switching that always says so. They first described it as
+switching models, then corrected it: switch providers (Gemini → OpenRouter),
+never models within one (Gemini 3.5 → 2.5), each provider using its own model.
+
+**Alternatives considered:** OpenRouter's server-side `models` fallback
+(only works inside OpenRouter, and doesn't say why it switched); switching
+between models of the same provider (rejected by the user); a notification
+instead of a toast (the person is already in the app).

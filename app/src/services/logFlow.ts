@@ -39,10 +39,13 @@ export async function stageDescription(
 
   let items = parsed.items;
   let note: string | undefined;
+  let modelNote: string | undefined;
   let aiUsed = false;
   if (mode === 'ai') {
     try {
-      items = (await estimateFromText(text)).map((item) => ({ ...item, heard: item.name }));
+      const estimate = await estimateFromText(text);
+      items = estimate.items.map((item) => ({ ...item, heard: item.name }));
+      modelNote = estimate.notice;
       aiUsed = true;
     } catch (error) {
       note = error instanceof VisionError ? error.message : 'The AI estimate failed.';
@@ -61,6 +64,7 @@ export async function stageDescription(
     dateKey,
     aiUsed,
     aiNote: note,
+    modelNote,
   });
   return { note };
 }
@@ -69,8 +73,9 @@ export async function stageDescription(
 export async function recheckWithAI() {
   const pending = useReviewStore.getState().pending;
   if (!pending?.transcript) return;
-  const items = (await estimateFromText(pending.transcript)).map((item) => ({ ...item, heard: item.name }));
-  useReviewStore.setState({ pending: { ...pending, items, aiUsed: true, aiNote: undefined } });
+  const estimate = await estimateFromText(pending.transcript);
+  const items = estimate.items.map((item) => ({ ...item, heard: item.name }));
+  useReviewStore.setState({ pending: { ...pending, items, aiUsed: true, aiNote: undefined, modelNote: estimate.notice } });
 }
 
 export function stageEdit(entry: FoodLogEntry) {

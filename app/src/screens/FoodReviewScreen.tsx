@@ -219,6 +219,13 @@ export function FoodReviewScreen() {
           </View>
         ) : null}
 
+        {pending.modelNote ? (
+          <View style={styles.modelNote} accessible accessibilityRole="text">
+            <Icon name="arrow.triangle.swap" size={14} color={colors.accent} />
+            <Text style={styles.modelNoteText}>{pending.modelNote}</Text>
+          </View>
+        ) : null}
+
         <Card style={styles.summary}>
           <View accessible accessibilityLabel={`Total ${u.energySpoken(totals.calories)}`} style={styles.summaryTop}>
             <Text style={styles.summaryNumber} numberOfLines={1} adjustsFontSizeToFit>{u.energyNumber(totals.calories)}</Text>
@@ -467,6 +474,21 @@ const styles = StyleSheet.create({
     ...typography.callout,
     color: colors.textSecondary,
     lineHeight: 21,
+  },
+  modelNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.sm + 4,
+    borderRadius: radius.md,
+    borderCurve: 'continuous',
+    backgroundColor: colors.accentSoft,
+  },
+  modelNoteText: {
+    ...typography.footnote,
+    color: colors.textPrimary,
+    flex: 1,
+    lineHeight: 18,
   },
   aiNote: {
     ...typography.footnote,

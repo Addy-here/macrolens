@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { usePushedTabPadding } from '../navigation/TabStack';
 import { Tappable } from '../components/ui/Tappable';
 import { router, Stack } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -10,6 +11,7 @@ import { colors, spacing, typography } from '../theme';
 import { usePlanStore } from '../store/usePlanStore';
 import { useUnits } from '../store/useSettingsStore';
 import { confirmDeleteWeighIn } from './WeighInScreen';
+import { useDevAutoScroll } from '../dev/devScroll';
 import type { WeightEntry } from '../types';
 
 const HEADER = {
@@ -30,8 +32,10 @@ const HEADER = {
 
 /** Every weigh-in, newest first, by month. Tap to correct one; hold to delete. */
 export function WeighInsScreen() {
+  const bottomPadding = usePushedTabPadding();
   const history = usePlanStore((s) => s.weightHistory);
   const u = useUnits();
+  const scrollRef = useDevAutoScroll('plan/weights');
 
   const months = useMemo(() => {
     const rows = history.map((entry, index) => ({ entry, previous: history[index - 1] as WeightEntry | undefined })).reverse();
@@ -48,7 +52,7 @@ export function WeighInsScreen() {
   return (
     <>
       <Stack.Screen options={HEADER} />
-      <ScrollView style={styles.screen} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} style={styles.screen} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]}>
         {history.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>No weigh-ins yet</Text>
@@ -107,7 +111,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.gutter,
-    paddingBottom: spacing.tabBottom,
   },
   add: {
     width: 36,

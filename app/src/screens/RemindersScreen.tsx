@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, AppState, Linking, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
+import { usePushedTabPadding } from '../navigation/TabStack';
 import { Tappable } from '../components/ui/Tappable';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -34,6 +35,7 @@ const MEAL_ROWS: { key: ReminderKey; title: string; icon: SFSymbol; tint: string
 
 /** Meal and weigh-in reminders. A reminder is skipped on days that meal or weigh-in is already logged. */
 export function RemindersScreen() {
+  const bottomPadding = usePushedTabPadding();
   const reminders = useSettingsStore((s) => s.reminders);
   const setReminder = useSettingsStore((s) => s.setReminder);
   const weekStartsOn = useSettingsStore((s) => s.weekStartsOn);
@@ -135,7 +137,7 @@ export function RemindersScreen() {
   return (
     <>
       <Stack.Screen options={HEADER} />
-      <ScrollView style={styles.screen} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+      <ScrollView style={styles.screen} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]}>
         {blocked ? (
           <Card style={styles.blocked}>
             <View style={styles.blockedHead}>
@@ -251,7 +253,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.gutter,
-    paddingBottom: spacing.tabBottom,
   },
   trailing: {
     flexDirection: 'row',

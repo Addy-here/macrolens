@@ -213,7 +213,7 @@ export function LogScreen() {
   async function estimatePhoto(captured: CapturedPhoto) {
     setPhotoError(null);
     try {
-      const items = await analyzeFoodPhoto({ base64: captured.base64, mimeType: captured.mimeType });
+      const { items, notice } = await analyzeFoodPhoto({ base64: captured.base64, mimeType: captured.mimeType });
       const { target: current } = useReviewStore.getState();
       useReviewStore.getState().setPending({
         origin: 'photo',
@@ -223,6 +223,7 @@ export function LogScreen() {
         mealFrom: current ? 'target' : 'clock',
         dateKey: current?.dateKey,
         aiUsed: true,
+        modelNote: notice,
       });
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push('/review');

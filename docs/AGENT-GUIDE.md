@@ -114,7 +114,10 @@ end; iOS doesn't clamp a large offset), `scroll` (`screen:y`, scrolls an open
 screen without navigating, e.g. `plan-editor:1200`), `units` (`metric`,
 `us`, `uk`, `au`, or `weight:st,energy:kJ`), `checkin` (make the weekly
 check-in due), `quick` (run a Home Screen quick action: `speak`, `photo`,
-`search`, `weigh`; long-press can't be done headless), `review`, `action`,
+`search`, `weigh`; long-press can't be done headless), `provider` (make an AI
+provider the main one), `keys` (act as if these providers have keys saved,
+e.g. `gemini,openrouter`; UI only), `switched` (with `review`, show the note
+a backup provider leaves), `review`, `action`,
 `aikey` (1/0: act as if an AI key is saved — real requests still fail),
 `say` (prefill Log), `speak` (a WAV path to transcribe instead of the mic;
 16 kHz mono, e.g. `say -o x.aiff "…"` + `afconvert -f WAVE -d LEI16@16000
@@ -129,7 +132,8 @@ recognition can't run in this simulator), `log.focus`, `log.simulatePhoto`,
 field), `plan.saveWeight`, `plan.checkIn`, `planEditor.fill` (types weights,
 since the simulator can't), `planEditor.save`, `planEditor.maintain`,
 `planEditor.gain`, `planEditor.customMacros`, `planEditor.customTarget`,
-`planEditor.weekends`, `weighIn.save`, `reminders.demo` (turns on breakfast
+`planEditor.weekends`, `weighIn.save`, `models.search` (filters the model
+list to "claude haiku"), `models.chooseFirst`, `reminders.demo` (turns on breakfast
 and a Mon/Wed/Fri weigh-in without the permission prompt, which can't be
 answered here).
 

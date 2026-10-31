@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { usePushedTabPadding } from '../navigation/TabStack';
 import { Tappable } from '../components/ui/Tappable';
 import { router, Stack } from 'expo-router';
 import { Card } from '../components/ui/Card';
@@ -31,6 +32,7 @@ const HEADER = {
  * they logged. These are matched before the built-in list.
  */
 export function MyFoodsScreen() {
+  const bottomPadding = usePushedTabPadding();
   const foods = useFoodLibraryStore((s) => s.foods);
   const { yours, learned } = useMemo(
     () => ({
@@ -43,7 +45,7 @@ export function MyFoodsScreen() {
   return (
     <>
       <Stack.Screen options={HEADER} />
-      <ScrollView style={styles.screen} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+      <ScrollView style={styles.screen} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]}>
         {foods.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>No foods yet</Text>
@@ -97,7 +99,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.gutter,
-    paddingBottom: spacing.tabBottom,
   },
   add: {
     width: 36,

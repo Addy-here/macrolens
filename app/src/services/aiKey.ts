@@ -2,16 +2,20 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 /**
+ * Starting lists, used until the provider's own list has been fetched (see
+ * services/aiModels.ts). Any model id the provider accepts can be chosen.
+ *
  * The user's own provider key, kept in the iOS keychain (SecureStore).
  * Macrolens never ships a key of its own. See the BYOK ADR in
  * docs/DECISIONS.md.
  */
-export type AiProvider = 'gemini' | 'openai' | 'anthropic';
+export type AiProvider = 'gemini' | 'openai' | 'anthropic' | 'openrouter';
 
 export const AI_PROVIDERS: { id: AiProvider; label: string }[] = [
   { id: 'gemini', label: 'Gemini' },
   { id: 'openai', label: 'OpenAI' },
   { id: 'anthropic', label: 'Anthropic' },
+  { id: 'openrouter', label: 'OpenRouter' },
 ];
 
 export const AI_MODELS: Record<AiProvider, { id: string; label: string }[]> = {
@@ -25,6 +29,11 @@ export const AI_MODELS: Record<AiProvider, { id: string; label: string }[]> = {
     { id: 'gpt-4.1', label: 'GPT-4.1' },
   ],
   anthropic: [{ id: 'claude-haiku-5-5', label: 'Claude Haiku' }],
+  openrouter: [
+    { id: 'google/gemini-3.8-flash', label: 'Gemini 3.8 Flash' },
+    { id: 'anthropic/claude-haiku-5.5', label: 'Claude Haiku 5.5' },
+    { id: 'openai/gpt-5.4-mini', label: 'GPT-5.4 Mini' },
+  ],
 };
 
 const PROVIDER_KEY = 'macrolens.ai.provider';
@@ -38,7 +47,7 @@ function modelKey(provider: AiProvider) {
 }
 
 function isProvider(value: string | null): value is AiProvider {
-  return value === 'gemini' || value === 'openai' || value === 'anthropic';
+  return value === 'gemini' || value === 'openai' || value === 'anthropic' || value === 'openrouter';
 }
 
 export function providerLabel(provider: AiProvider) {
@@ -49,9 +58,6 @@ export function defaultModel(provider: AiProvider) {
   return AI_MODELS[provider][0].id;
 }
 
-export function modelLabel(provider: AiProvider, model: string) {
-  return AI_MODELS[provider].find((item) => item.id === model)?.label ?? model;
-}
 
 async function secureStoreAvailable() {
   if (Platform.OS === 'web') return false;
@@ -79,14 +85,14 @@ export async function readAiModel(provider: AiProvider): Promise<string> {
   const fallback = defaultModel(provider);
   if (!(await secureStoreAvailable())) return fallback;
   const stored = await SecureStore.getItemAsync(modelKey(provider));
-  return AI_MODELS[provider].some((item) => item.id === stored) ? (stored as string) : fallback;
+  return stored?.trim() ? stored.trim() : fallback;
 }
 
 export async function writeAiModel(provider: AiProvider, model: string) {
   if (!(await secureStoreAvailable())) {
     throw new Error('API keys can be saved on iPhone, in the keychain.');
   }
-  if (!AI_MODELS[provider].some((item) => item.id === model)) return;
+  if (!model.trim()) return;
   await SecureStore.setItemAsync(modelKey(provider), model);
 }
 

@@ -49,6 +49,12 @@ Stored metric (kg, cm, kcal, g, ml); shown and typed in the person's units (Sett
 - **Settings** is preferences only: Units, General (week start, Reminders), Water, Food (My Foods, AI), Data (backup, CSV, Delete All Data), About. Goals and body stats never appear here.
 - **Reminders**: meals and weigh-in as local notifications, a week scheduled ahead and skipped on days already logged. The weigh-in picks its days with seven day toggles in calendar order (at least one stays on). Each reminder that's on says only when it fires next ("Next tomorrow"; the time is beside it), from `planReminders` — the same plan the scheduler follows; one static footnote states the skip rule. "Send a Test" delivers one in 5 seconds. At large text the time moves to its own row.
 
+## AI providers and switching
+
+Settings ▸ AI: Gemini, OpenAI, Anthropic, or OpenRouter as the main provider, each with its own key (keychain) and its own model. Rows show each provider's model, or "No key". The model row opens a searchable list fetched live from the provider — OpenRouter's public catalog, the others' once a key is saved — limited to models that read photos and answer in text, grouped by maker on OpenRouter, with price per 1M tokens (`services/aiModels.ts`).
+
+Backups are other providers, never other models of the same provider: when the main provider's model is rate-limited, overloaded, gone, or out of credits, the next backup provider with a saved key answers with its own chosen model. Order, Change Model, and Remove are on each backup row; a provider whose key is saved later joins the end. A model that just failed rests for a few minutes so the next estimate goes straight to one that works. Every switch is told twice: a toast ("Switched to OpenRouter") and an accent-tinted note at the top of Review ("Gemini wasn’t available, so OpenRouter’s Claude Haiku 5.5 estimated this." — no reason given; why it failed doesn't help) — the review is where the result is read, and it covers the toast. A rejected key on the main provider stops rather than switches; that's the person's to fix.
+
 ## Home Screen quick actions
 
 Touch and hold the app icon: Say a Meal, Snap a Meal, Search Foods, Log Weight — Apple's limit is four, so these are the four reasons to open a food log (`services/quickActions.ts`, `expo-quick-actions`). SF Symbols, no subtitles. Each runs the same path as the button it mirrors: the quick-log bar's Speak and Photo, Log's Search, Plan's Other Day weigh-in. Any open sheet is dismissed first.
@@ -107,7 +113,7 @@ Check every screen at `accessibility-medium` (`xcrun simctl ui booted content_si
 
 ## Layout
 
-Horizontal gutter `spacing.gutter` (20). Scroll views use `contentInsetAdjustmentBehavior="automatic"` so content starts under the large title and clears the tab bar. The automatic inset doesn't count the Log a meal bar above the tab bar, so every tab screen that shows it (all but Log) ends with `paddingBottom: spacing.tabBottom`. Card stacks use 10–12pt gaps; sections open with `SectionHeader` (24pt above).
+Horizontal gutter `spacing.gutter` (20). Scroll views use `contentInsetAdjustmentBehavior="automatic"` so content starts under the large title and clears the tab bar. The automatic inset doesn't count the Log a meal bar above the tab bar, so every tab screen that shows it (all but Log) ends with `paddingBottom: spacing.tabBottom`. A screen pushed inside a tab doesn't get the tab bar in its automatic inset at all, so it uses `usePushedTabPadding()` (navigation/TabStack.tsx) instead. Card stacks use 10–12pt gaps; sections open with `SectionHeader` (24pt above).
 
 ## Copy
 

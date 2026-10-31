@@ -53,7 +53,7 @@ describe('stageDescription', () => {
   });
 
   it('sends the whole description in AI mode and uses its answer instead', async () => {
-    estimate.mockResolvedValue([aiItem('Panda Express orange chicken', 490), aiItem('Fried rice', 520)]);
+    estimate.mockResolvedValue({ items: [aiItem('Panda Express orange chicken', 490), aiItem('Fried rice', 520)] });
     await stageDescription('panda express orange chicken and fried rice', 'voice', 'ai');
     expect(estimate).toHaveBeenCalledWith('panda express orange chicken and fried rice');
     const pending = useReviewStore.getState().pending!;
@@ -87,9 +87,13 @@ describe('stageDescription', () => {
 
   it('re-checks a staged description with AI from the review sheet', async () => {
     await stageDescription('orange and chicken', 'voice', 'local');
-    estimate.mockResolvedValue([aiItem('Orange chicken', 490)]);
+    estimate.mockResolvedValue({ items: [aiItem('Orange chicken', 490)], notice: 'Gemini wasn’t available, so OpenRouter’s Claude Haiku 5.5 estimated this.' });
     await recheckWithAI();
-    expect(useReviewStore.getState().pending).toMatchObject({ aiUsed: true, items: [{ name: 'Orange chicken' }] });
+    expect(useReviewStore.getState().pending).toMatchObject({
+      aiUsed: true,
+      items: [{ name: 'Orange chicken' }],
+      modelNote: 'Gemini wasn’t available, so OpenRouter’s Claude Haiku 5.5 estimated this.',
+    });
   });
 });
 

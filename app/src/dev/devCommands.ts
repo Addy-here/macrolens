@@ -1,6 +1,8 @@
 import { router, type Href } from 'expo-router';
 import { create } from 'zustand';
 import { useAiKeyStore } from '../store/useAiKeyStore';
+import { useReviewStore } from '../store/useReviewStore';
+import type { AiProvider } from '../services/aiKey';
 import { useLogIntentStore } from '../store/useLogIntentStore';
 import { clearAllData, makeCheckInDue, seedSampleData, stageSampleReview, whenStoresHydrated } from './sampleData';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -23,7 +25,7 @@ import { runQuickAction } from '../services/quickActions';
  */
 
 export type DevParams = Partial<
-  Record<'seed' | 'clear' | 'go' | 'y' | 'review' | 'action' | 'aikey' | 'say' | 'speak' | 'units' | 'checkin' | 'scroll' | 'quick', string>
+  Record<'seed' | 'clear' | 'go' | 'y' | 'review' | 'action' | 'aikey' | 'say' | 'speak' | 'units' | 'checkin' | 'scroll' | 'quick' | 'provider' | 'switched' | 'keys', string>
 >;
 
 interface DevState {
@@ -65,6 +67,21 @@ export async function runDevCommand(params: DevParams) {
   // Pretend a key is saved (UI only; real requests fail), to look at the AI paths without a real key.
   if (params.aikey) useAiKeyStore.setState({ hasKey: params.aikey === '1' });
   if (params.seed) seedSampleData();
+  // Act as if these providers have keys saved (UI only): keys=gemini,openrouter,anthropic
+  if (params.keys) {
+    const saved = params.keys.split(',') as AiProvider[];
+    // After the AI page has read the real keychain on opening, or it would undo this.
+    setTimeout(
+      () =>
+        useAiKeyStore.setState((state) => ({
+          keys: Object.fromEntries(Object.keys(state.keys).map((id) => [id, saved.includes(id as AiProvider)])) as typeof state.keys,
+          hasKey: saved.includes(state.provider),
+        })),
+      1500,
+    );
+  }
+  // Choose an AI provider, as Settings ▸ AI would: provider=openrouter
+  if (params.provider) await useAiKeyStore.getState().selectProvider(params.provider as AiProvider);
   if (params.checkin) makeCheckInDue();
   // Scroll a screen that's already open, without navigating: scroll=plan-editor:1300
   if (params.scroll) {
@@ -109,6 +126,15 @@ export async function runDevCommand(params: DevParams) {
   }
   if (params.review) {
     stageSampleReview();
+    // Show the note a backup model leaves on the review.
+    if (params.switched) {
+      const pending = useReviewStore.getState().pending;
+      if (pending) {
+        useReviewStore.setState({
+          pending: { ...pending, modelNote: 'Gemini wasn’t available, so OpenRouter’s Claude Haiku 5.5 estimated this.' },
+        });
+      }
+    }
     setTimeout(() => router.push('/review'), 500);
   }
   if (params.action) {
