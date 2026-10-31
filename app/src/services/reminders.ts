@@ -5,9 +5,10 @@ import { router, type Href } from 'expo-router';
 import { useFoodLogStore } from '../store/useFoodLogStore';
 import { usePlanStore } from '../store/usePlanStore';
 import { useReviewStore } from '../store/useReviewStore';
-import { useSettingsStore, type ReminderKey } from '../store/useSettingsStore';
+import { useSettingsStore, type Reminder, type ReminderKey } from '../store/useSettingsStore';
 import { addDays, entryDateKey, localDateKey } from '../utils/date';
 import type { MealType } from '../utils/meals';
+import type { FoodLogEntry, WeightEntry } from '../types';
 
 /**
  * Meal and weigh-in reminders, as local notifications. Instead of one
@@ -87,35 +88,90 @@ async function scheduleWeek() {
       .map((request) => Notifications.cancelScheduledNotificationAsync(request.identifier)),
   );
 
-  const { reminders } = useSettingsStore.getState();
-  const enabled = (Object.keys(reminders) as ReminderKey[]).filter((key) => reminders[key].enabled);
-  if (enabled.length === 0) return;
   if ((await Notifications.getPermissionsAsync()).status !== 'granted') return;
-
-  const logged = new Set(
-    useFoodLogStore.getState().entries.map((entry) => `${entryDateKey(entry.loggedAt)}:${entry.mealType}`),
+  const planned = planReminders(
+    useSettingsStore.getState().reminders,
+    useFoodLogStore.getState().entries,
+    usePlanStore.getState().weightHistory,
   );
-  const weighed = new Set(usePlanStore.getState().weightHistory.map((entry) => entryDateKey(entry.loggedAt)));
-  const now = new Date();
+  for (const slot of planned) {
+    if (slot.status !== 'scheduled') continue;
+    const copy = COPY[slot.key];
+    await Notifications.scheduleNotificationAsync({
+      identifier: `${PREFIX}-${slot.key}-${slot.dateKey}`,
+      content: { title: copy.title, body: copy.body, data: { url: copy.url, meal: copy.meal, dateKey: slot.dateKey } },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: slot.at },
+    });
+  }
+}
 
+export type SlotStatus = 'scheduled' | 'past' | 'off' | 'done';
+
+export interface ReminderSlot {
+  key: ReminderKey;
+  dateKey: string;
+  at: Date;
+  /** `done`: that meal is logged or the weigh-in is in; `off`: a day turned off; `past`: the time has gone. */
+  status: SlotStatus;
+}
+
+/** Every enabled reminder over the coming week, and whether each will fire. Shared by the scheduler and the screen. */
+export function planReminders(
+  reminders: Record<ReminderKey, Reminder>,
+  entries: FoodLogEntry[],
+  weights: WeightEntry[],
+  now = new Date(),
+): ReminderSlot[] {
+  const logged = new Set(entries.map((entry) => `${entryDateKey(entry.loggedAt)}:${entry.mealType}`));
+  const weighed = new Set(weights.map((entry) => entryDateKey(entry.loggedAt)));
+  const slots: ReminderSlot[] = [];
   for (let offset = 0; offset < DAYS_AHEAD; offset++) {
     const day = addDays(now, offset);
-    const key = localDateKey(day);
-    for (const reminder of enabled) {
-      const { hour, minute, days } = reminders[reminder];
-      if (days && !days.includes(day.getDay())) continue;
+    const dateKey = localDateKey(day);
+    for (const key of Object.keys(reminders) as ReminderKey[]) {
+      const { enabled, hour, minute, days } = reminders[key];
+      if (!enabled) continue;
       const at = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour, minute);
-      if (at.getTime() <= now.getTime() + 30_000) continue;
-      const copy = COPY[reminder];
-      if (copy.meal && logged.has(`${key}:${copy.meal}`)) continue;
-      if (reminder === 'weighIn' && weighed.has(key)) continue;
-      await Notifications.scheduleNotificationAsync({
-        identifier: `${PREFIX}-${reminder}-${key}`,
-        content: { title: copy.title, body: copy.body, data: { url: copy.url, meal: copy.meal, dateKey: key } },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at },
-      });
+      const meal = COPY[key].meal;
+      const status: SlotStatus =
+        days && !days.includes(day.getDay())
+          ? 'off'
+          : (meal && logged.has(`${dateKey}:${meal}`)) || (key === 'weighIn' && weighed.has(dateKey))
+            ? 'done'
+            : at.getTime() <= now.getTime() + 30_000
+              ? 'past'
+              : 'scheduled';
+      slots.push({ key, dateKey, at, status });
     }
   }
+  return slots;
+}
+
+/** "Next today", or "Logged today · Next tomorrow" when today's was skipped for that reason. The time is beside it in the row. */
+export function nextReminderLabel(key: ReminderKey, slots: ReminderSlot[], now = new Date()) {
+  const mine = slots.filter((slot) => slot.key === key);
+  const todayKey = localDateKey(now);
+  const doneToday = mine.some((slot) => slot.dateKey === todayKey && slot.status === 'done');
+  const next = mine.find((slot) => slot.status === 'scheduled');
+  const day = !next
+    ? null
+    : next.dateKey === todayKey
+      ? 'today'
+      : next.dateKey === localDateKey(addDays(now, 1))
+        ? 'tomorrow'
+        : next.at.toLocaleDateString(undefined, { weekday: 'long' });
+  const parts = [doneToday ? (key === 'weighIn' ? 'Weighed in today' : 'Logged today') : null, day ? `Next ${day}` : null];
+  return parts.filter(Boolean).join(' · ');
+}
+
+/** A notification in a few seconds, to check that reminders reach this iPhone. */
+export async function sendTestReminder() {
+  await Notifications.scheduleNotificationAsync({
+    // Outside the reminder prefix, so a resync doesn't cancel it.
+    identifier: 'macrolens-test',
+    content: { title: 'Macrolens', body: 'Reminders are working.' },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 5 },
+  });
 }
 
 /** Mounted once at the root: keeps reminders in step with the log and opens the right place when one is tapped. */
@@ -155,18 +211,6 @@ export function useReminders() {
       subscription.remove();
     };
   }, []);
-}
-
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-/** "Every day", "Weekdays", "Weekends", or "Mon, Wed, Fri" in calendar order. */
-export function daysLabel(days: number[] | undefined, weekStartsOn: 0 | 1 = 0) {
-  const set = new Set(days ?? [0, 1, 2, 3, 4, 5, 6]);
-  if (set.size === 7) return 'Every day';
-  if (set.size === 5 && ![0, 6].some((d) => set.has(d))) return 'Weekdays';
-  if (set.size === 2 && set.has(0) && set.has(6)) return 'Weekends';
-  const order = [0, 1, 2, 3, 4, 5, 6].map((i) => (i + weekStartsOn) % 7);
-  return order.filter((d) => set.has(d)).map((d) => DAY_NAMES[d]).join(', ');
 }
 
 export function timeLabelFor(hour: number, minute: number) {

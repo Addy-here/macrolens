@@ -16,7 +16,7 @@ import * as Notifications from 'expo-notifications';
 import { useFoodLogStore } from '../../store/useFoodLogStore';
 import { usePlanStore } from '../../store/usePlanStore';
 import { DEFAULT_REMINDERS, useSettingsStore } from '../../store/useSettingsStore';
-import { daysLabel, syncReminders } from '../reminders';
+import { nextReminderLabel, planReminders, syncReminders } from '../reminders';
 
 const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
 const cancel = Notifications.cancelScheduledNotificationAsync as jest.Mock;
@@ -89,10 +89,24 @@ it('fires a weigh-in only on the chosen days', async () => {
   ]);
 });
 
-it('names the chosen days', () => {
-  expect(daysLabel(undefined)).toBe('Every day');
-  expect(daysLabel([1, 2, 3, 4, 5])).toBe('Weekdays');
-  expect(daysLabel([0, 6])).toBe('Weekends');
-  expect(daysLabel([0, 1, 3, 5], 1)).toBe('Mon, Wed, Fri, Sun');
-  expect(daysLabel([0, 1, 3, 5], 0)).toBe('Sun, Mon, Wed, Fri');
+it('says when a reminder fires next and why today was skipped', () => {
+  const now = new Date(2026, 9, 30, 20, 50); // Friday evening
+  const reminders = {
+    ...DEFAULT_REMINDERS,
+    dinner: { enabled: true, hour: 20, minute: 57 },
+    weighIn: { enabled: true, hour: 7, minute: 30, days: [0, 1, 2, 3, 4, 5] },
+  };
+  const dinner = {
+    id: 'd',
+    loggedAt: new Date(2026, 9, 30, 20, 48).toISOString(),
+    mealType: 'dinner' as const,
+    items: [],
+    totalMacros: { calories: 788, proteinG: 0, carbsG: 0, fatG: 0 },
+  };
+  const weighIn = { id: 'w', loggedAt: new Date(2026, 9, 30, 7, 20).toISOString(), weightKg: 80.3 };
+  const slots = planReminders(reminders, [dinner], [weighIn], now);
+  expect(slots.find((s) => s.key === 'dinner' && s.dateKey === '2026-10-30')?.status).toBe('done');
+  expect(slots.find((s) => s.key === 'weighIn' && s.dateKey === '2026-10-31')?.status).toBe('off');
+  expect(nextReminderLabel('dinner', slots, now)).toBe('Logged today · Next tomorrow');
+  expect(nextReminderLabel('weighIn', slots, now)).toBe('Weighed in today · Next Sunday');
 });

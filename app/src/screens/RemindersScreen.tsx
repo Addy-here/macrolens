@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, AppState, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -11,7 +11,17 @@ import { GroupLabel, ListRow } from '../components/ui/ListRow';
 import { colors, radius, spacing, typography } from '../theme';
 import { useSettingsStore, type ReminderKey } from '../store/useSettingsStore';
 import { useDevAction } from '../dev/devScroll';
-import { daysLabel, reminderPermission, requestReminderPermission, type PermissionState } from '../services/reminders';
+import {
+  nextReminderLabel,
+  planReminders,
+  reminderPermission,
+  requestReminderPermission,
+  sendTestReminder,
+  type PermissionState,
+} from '../services/reminders';
+import { useFoodLogStore } from '../store/useFoodLogStore';
+import { usePlanStore } from '../store/usePlanStore';
+import { useToastStore } from '../store/useToastStore';
 
 const HEADER = { title: 'Reminders', headerLargeTitleEnabled: false };
 
@@ -26,6 +36,10 @@ export function RemindersScreen() {
   const reminders = useSettingsStore((s) => s.reminders);
   const setReminder = useSettingsStore((s) => s.setReminder);
   const weekStartsOn = useSettingsStore((s) => s.weekStartsOn);
+  const entries = useFoodLogStore((s) => s.entries);
+  const weights = usePlanStore((s) => s.weightHistory);
+  // The same plan the scheduler follows, so each row can say when it fires next and why today was skipped.
+  const slots = useMemo(() => planReminders(reminders, entries, weights), [reminders, entries, weights]);
   const { fontScale } = useWindowDimensions();
   const [permission, setPermission] = useState<PermissionState>('undetermined');
 
@@ -60,6 +74,20 @@ export function RemindersScreen() {
     setReminder('weighIn', { enabled: true, days: [1, 3, 5] });
   });
 
+  async function test() {
+    const granted = await requestReminderPermission();
+    refresh();
+    if (!granted) {
+      Alert.alert('Notifications are off', 'Turn on notifications for Macrolens in Settings to get reminders.', [
+        { text: 'Not Now', style: 'cancel' },
+        { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+      ]);
+      return;
+    }
+    await sendTestReminder();
+    useToastStore.getState().show('Test arrives in 5 seconds', undefined, 'done');
+  }
+
   const anyOn = Object.values(reminders).some((reminder) => reminder.enabled);
   const blocked = permission === 'denied' && anyOn;
 
@@ -85,6 +113,7 @@ export function RemindersScreen() {
           icon={icon}
           tint={tint}
           title={title}
+          subtitle={reminder.enabled ? nextReminderLabel(key, slots) || undefined : undefined}
           trailing={
             <View style={styles.trailing}>
               {reminder.enabled && !stacked ? picker : null}
@@ -118,7 +147,6 @@ export function RemindersScreen() {
 
         <GroupLabel>Meals</GroupLabel>
         <Card padded={false}>{MEAL_ROWS.map((meal, index) => row(meal.key, meal.title, meal.icon, meal.tint, index === 0))}</Card>
-        <Text style={styles.footnote}>Skipped on days you’ve already logged that meal.</Text>
 
         <GroupLabel>Weight</GroupLabel>
         <Card padded={false}>
@@ -131,10 +159,11 @@ export function RemindersScreen() {
             />
           ) : null}
         </Card>
-        <Text style={styles.footnote}>
-          {reminders.weighIn.enabled ? `${daysLabel(reminders.weighIn.days, weekStartsOn)}. ` : ''}Skipped on days you’ve already
-          weighed in.
-        </Text>
+        <Text style={styles.footnote}>A reminder is skipped once that meal or weigh-in is logged.</Text>
+
+        <Card padded={false} style={styles.testCard}>
+          <ListRow first icon="bell.badge.fill" tint={colors.tile.pink} title="Send a Test" onPress={() => void test()} />
+        </Card>
       </ScrollView>
     </>
   );
@@ -187,6 +216,9 @@ function WeekdayPicker({
 }
 
 const styles = StyleSheet.create({
+  testCard: {
+    marginTop: spacing.lg,
+  },
   weekdays: {
     flexDirection: 'row',
     justifyContent: 'space-between',

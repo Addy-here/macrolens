@@ -47,7 +47,7 @@ Stored metric (kg, cm, kcal, g, ml); shown and typed in the person's units (Sett
 - **Plan editor** (`/plan-editor`, page sheet): goal (Lose / Maintain / Gain), goal weight, pace, body, activity, macros (presets or a custom split that must add to 100%), daily target (Calculated / Custom), weekends. The preview card leads; the pinned footer is the one primary: "Save · 2,180 kcal a day", or why it can't save. Swiping away with edits asks first. First run (no profile) starts with the weights empty.
 - **Weigh-ins** (`/plan/weights` list by month, `/weigh-in` sheet with date and time): tap to correct, hold or the sheet's Delete to remove, with Undo.
 - **Settings** is preferences only: Units, General (week start, Reminders), Water, Food (My Foods, AI), Data (backup, CSV, Delete All Data), About. Goals and body stats never appear here.
-- **Reminders**: meals and weigh-in as local notifications, a week scheduled ahead and skipped on days already logged. The weigh-in picks its days with seven day toggles in calendar order (at least one stays on); the footnote names them ("Mon, Wed, Fri"). At large text the time moves to its own row.
+- **Reminders**: meals and weigh-in as local notifications, a week scheduled ahead and skipped on days already logged. The weigh-in picks its days with seven day toggles in calendar order (at least one stays on). Each reminder that's on says when it fires next and why today was skipped ("Logged today · Next tomorrow"), from `planReminders` — the same plan the scheduler follows; one static footnote states the skip rule. "Send a Test" delivers one in 5 seconds. At large text the time moves to its own row.
 
 ## Type
 
